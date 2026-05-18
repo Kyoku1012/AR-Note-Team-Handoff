@@ -25,6 +25,29 @@ public class NoteData
     public Vector3 worldPosition;
     public Vector3 worldRotation;
 
+    public NoteData Clone()
+    {
+        return new NoteData
+        {
+            id = id,
+            title = title,
+            content = content,
+            annotation = annotation,
+            isCompleted = isCompleted,
+            isVisible = isVisible,
+            colorLabel = colorLabel,
+            colorName = colorName,
+            iconId = iconId,
+            priorityId = priorityId,
+            hasReminder = hasReminder,
+            reminderTime = reminderTime,
+            hasVoiceNote = hasVoiceNote,
+            voiceFilePath = voiceFilePath,
+            worldPosition = worldPosition,
+            worldRotation = worldRotation
+        };
+    }
+
     public void ApplyDefaults()
     {
         if (string.IsNullOrWhiteSpace(id))

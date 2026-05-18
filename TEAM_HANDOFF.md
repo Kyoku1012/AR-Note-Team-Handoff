@@ -12,23 +12,34 @@ This project is set up so each member can test and amend their module without br
 
 ## Shared Architecture
 
-- `NoteData` is the shared save model. Add new fields here only when the data must survive app restarts.
-- `NoteManager` is the single source of truth for all notes in memory.
-- `DatabaseManager` saves and loads local JSON from `Application.persistentDataPath/ar_notes.json`.
-- `NoteView` binds one AR prefab instance to one `NoteData` record.
-- `PlaceNote` owns Vuforia surface hit testing, note creation, and restore from saved world poses.
-- `StylePanelController` updates the currently selected `NoteView`.
-- `ReminderManager` schedules or cancels Android local reminders.
-- `VoiceNoteManager` records, saves, plays, and deletes WAV voice memos.
-- `NoteEditPanel` is a runtime fallback edit UI, so the app stays testable even if scene UI is incomplete.
+- `Assets/Scripts/Data/NoteData.cs` is the shared save model. Add new fields here only when the data must survive app restarts.
+- `Assets/Scripts/Managers/NoteManager.cs` is the single source of truth for all notes in memory.
+- `Assets/Scripts/Managers/DatabaseManager.cs` saves and loads local JSON from `Application.persistentDataPath/ar_notes.json`.
+- `Assets/Scripts/AR/NoteView.cs` binds one AR prefab instance to one `NoteData` record.
+- `Assets/Scripts/AR/PlaceNote.cs` owns Vuforia surface hit testing, note creation, and restore from saved world poses.
+- `Assets/Scripts/Styling/StylePanelController.cs` updates the currently selected `NoteView`.
+- `Assets/Scripts/Managers/ReminderManager.cs` schedules or cancels Android local reminders.
+- `Assets/Scripts/Managers/VoiceNoteManager.cs` records, saves, plays, and deletes WAV voice memos.
+- `Assets/Scripts/UI/NoteEditPanel.cs` is a runtime fallback edit UI, so the app stays testable even if scene UI is incomplete.
+
+## Folder Map
+
+- `Assets/Scripts/AR`: AR placement, anchors, note views, camera-facing helpers.
+- `Assets/Scripts/Data`: serializable data contracts shared by every member.
+- `Assets/Scripts/Managers`: persistence, note registry, reminders, and voice services.
+- `Assets/Scripts/Styling`: note visual style application and style-panel controls.
+- `Assets/Scripts/UI`: runtime UI panels, toolbar helpers, and simple UI tests.
+- `Assets/Editor`: editor-only checks and migration helpers.
+- `Assets/Scenes`: Unity scenes only.
+- `Assets/Prefabs`: reusable note and test prefabs.
 
 ## Member Boundaries
 
-- Member 1 should edit `PlaceNote`, `NoteView`, AR prefabs, Vuforia scene objects, and placement/orientation behavior.
-- Member 2 should edit task fields and UI through `NoteEditPanel`, `NoteManager`, and `NoteData`.
-- Member 3 should edit style assets, `NoteStyleManager`, `StylePanelController`, and note prefab visuals.
-- Member 4 should edit reminder UI and `ReminderManager`.
-- Member 5 should edit voice controls and `VoiceNoteManager`.
+- Member 1 should edit `Assets/Scripts/AR`, AR prefabs, Vuforia scene objects, and placement/orientation behavior.
+- Member 2 should edit task fields and UI through `Assets/Scripts/UI/NoteEditPanel.cs`, `Assets/Scripts/Managers/NoteManager.cs`, and `Assets/Scripts/Data/NoteData.cs`.
+- Member 3 should edit style assets, `Assets/Scripts/Styling`, and note prefab visuals.
+- Member 4 should edit reminder UI and `Assets/Scripts/Managers/ReminderManager.cs`.
+- Member 5 should edit voice controls and `Assets/Scripts/Managers/VoiceNoteManager.cs`.
 
 Avoid duplicating save logic in feature scripts. Change the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`.
 

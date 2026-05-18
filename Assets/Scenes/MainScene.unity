@@ -1434,6 +1434,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   allNotes: []
+  databaseManager: {fileID: 0}
 --- !u!4 &782628377
 Transform:
   m_ObjectHideFlags: 0
@@ -3821,7 +3822,7 @@ MonoBehaviour:
   m_Script: {fileID: 422107450, guid: 8a9a760f95896c34689febc965510927, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  PlaneIndicator: {fileID: 1353731089078378, guid: b9ed12c68682d5b49bfa70ee9d71602d, type: 3}
+  PlaneIndicator: {fileID: 1353731089078378, guid: 4f71e87e5b2e4c7b9ec612d4c5616f8a, type: 3}
   Height: 1.4
   OnInteractiveHitTest:
     m_PersistentCalls:
@@ -3872,6 +3873,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   notePrefab: {fileID: 6615528028870974021, guid: b13e18e86d5bea648974654844d30724, type: 3}
   offset: 0.01
+  noteTapRayDistance: 20
 --- !u!1 &1863900713
 GameObject:
   m_ObjectHideFlags: 0
@@ -3909,7 +3911,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 400, y: 500}
   m_SizeDelta: {x: 160, y: 30}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1863900715
