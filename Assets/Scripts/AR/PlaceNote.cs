@@ -7,6 +7,7 @@ public class PlaceNote : MonoBehaviour
 {
     public GameObject notePrefab;
     public float offset = 0.01f;
+    public float noteTapRayDistance = 20f;
 
     private PlaneFinderBehaviour planeFinder;
 
@@ -20,13 +21,18 @@ public class PlaceNote : MonoBehaviour
     {
         if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
         {
+            Vector2 touchPosition = Input.GetTouch(0).position;
+
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))
             {
                 Debug.Log("Touch is over UI, skip plane hit test.");
                 return;
             }
 
-            planeFinder?.PerformHitTest(Input.GetTouch(0).position);
+            if (TryOpenExistingNote(touchPosition))
+                return;
+
+            planeFinder?.PerformHitTest(touchPosition);
         }
 
 #if UNITY_EDITOR
@@ -38,13 +44,18 @@ public class PlaceNote : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
+            Vector2 mousePosition = Input.mousePosition;
+
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
                 Debug.Log("Mouse is over UI, skip plane hit test.");
                 return;
             }
 
-            planeFinder?.PerformHitTest(Input.mousePosition);
+            if (TryOpenExistingNote(mousePosition))
+                return;
+
+            planeFinder?.PerformHitTest(mousePosition);
         }
 #endif
     }
@@ -164,5 +175,24 @@ public class PlaceNote : MonoBehaviour
         anchorObj.transform.rotation = rotation;
         anchorObj.AddComponent<AnchorBehaviour>();
         return anchorObj;
+    }
+
+    private bool TryOpenExistingNote(Vector2 screenPosition)
+    {
+        Camera camera = Camera.main;
+        if (camera == null)
+            return false;
+
+        Ray ray = camera.ScreenPointToRay(screenPosition);
+        if (!Physics.Raycast(ray, out RaycastHit hit, noteTapRayDistance))
+            return false;
+
+        NoteView noteView = hit.collider.GetComponentInParent<NoteView>();
+        if (noteView == null)
+            return false;
+
+        noteView.OpenEditor();
+        Debug.Log("Existing note tapped; opening editor instead of creating a new note.");
+        return true;
     }
 }
