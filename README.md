@@ -1,4 +1,4 @@
-# AR-Note-System
+# AR-Note-Team-Handoff
 * An augmented reality (AR) mobile application that enables users to place digital sticky notes, to-do lists, and reminders within their physical environment.
 
 ## Implemented group-project feature set
