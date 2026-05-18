@@ -11,6 +11,12 @@ public class PlaceNote : MonoBehaviour
     public GameObject notePrefab;
     public float offset = 0.01f;
     public float noteTapRayDistance = 20f;
+    [Header("Create Note Placement")]
+    public float wallCreateDistance = 1.2f;
+    public float horizontalCreateDistance = 1.0f;
+    public float horizontalCreateDrop = 0.45f;
+    [Range(-1f, 0f)]
+    public float lookDownThreshold = -0.45f;
 
     private PlaneFinderBehaviour planeFinder;
 
@@ -42,12 +48,6 @@ public class PlaceNote : MonoBehaviour
         }
 
 #if UNITY_EDITOR
-        if (Input.GetKeyDown(KeyCode.N))
-        {
-            CreateDebugTestNote();
-            return;
-        }
-
         if (Input.GetMouseButtonDown(0))
         {
             Vector2 mousePosition = Input.mousePosition;
@@ -77,35 +77,96 @@ public class PlaceNote : MonoBehaviour
         CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "Tap Edit to add details");
     }
 
-    public NoteView CreateDebugTestNote()
+    public NoteView CreateCenterScreenNote()
     {
         if (!Application.isPlaying)
         {
-            Debug.LogWarning("Debug test notes can only be created in Play Mode.");
+            Debug.LogWarning("Center-screen notes can only be created in Play Mode.");
             return null;
         }
 
         if (notePrefab == null)
         {
-            Debug.LogWarning("PlaceNote cannot create a debug test note because notePrefab is not assigned.");
+            Debug.LogWarning("PlaceNote cannot create a center-screen note because notePrefab is not assigned.");
             return null;
         }
 
-        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
-        Vector3 forward = cameraTransform.forward.sqrMagnitude > 0.01f ? cameraTransform.forward : Vector3.forward;
-        Vector3 position = cameraTransform.position + forward.normalized * 1.2f;
-        Quaternion rotation = Quaternion.LookRotation(-forward.normalized, Vector3.up);
+        Camera camera = Camera.main;
+        if (camera != null)
+        {
+            Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            if (TryOpenExistingNoteFromUi(center) || TryOpenExistingNote(center))
+            {
+                Debug.Log("Center screen is already occupied by a note; opened the existing note instead of creating another.");
+                return null;
+            }
+        }
 
-        Debug.Log("Created debug test note without Vuforia plane detection.");
-        return CreateNoteAt("DebugTestNoteAnchor", position, rotation, true, "Debug Test Note", "Created without ground-plane detection");
+        NoteView noteView = CreateNoteInFrontOfCamera("CenterScreenNoteAnchor", "New Note", "Tap Edit to add details");
+        if (noteView != null)
+            Debug.Log("Created center-screen note without ground-plane detection.");
+
+        return noteView;
     }
 
-#if UNITY_EDITOR
-    public NoteView CreateEditorTestNote()
+    private NoteView CreateNoteInFrontOfCamera(string anchorName, string title, string content)
     {
-        return CreateDebugTestNote();
+        if (notePrefab == null)
+            return null;
+
+        CalculateCreateNotePose(out Vector3 position, out Quaternion rotation, out string placementMode);
+        Debug.Log("Create Note placement mode: " + placementMode);
+
+        return CreateNoteAt(anchorName, position, rotation, true, title, content);
     }
-#endif
+
+    private void CalculateCreateNotePose(out Vector3 position, out Quaternion rotation, out string placementMode)
+    {
+        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
+        Vector3 cameraForward = cameraTransform.forward.sqrMagnitude > 0.01f
+            ? cameraTransform.forward.normalized
+            : Vector3.forward;
+
+        bool lookingAtHorizontalSurface = cameraForward.y < lookDownThreshold;
+        Vector3 flatForward = FlattenToGround(cameraForward, cameraTransform);
+
+        if (lookingAtHorizontalSurface)
+        {
+            placementMode = "horizontal surface";
+            position = cameraTransform.position
+                + flatForward * horizontalCreateDistance
+                + Vector3.down * horizontalCreateDrop;
+            rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+            return;
+        }
+
+        placementMode = "wall/front surface";
+        position = cameraTransform.position + cameraForward * wallCreateDistance;
+        rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+    }
+
+    private Vector3 FlattenToGround(Vector3 direction, Transform fallbackTransform)
+    {
+        Vector3 flatForward = direction;
+        flatForward.y = 0f;
+
+        if (flatForward.sqrMagnitude < 0.01f)
+        {
+            flatForward = fallbackTransform.forward;
+            flatForward.y = 0f;
+        }
+
+        if (flatForward.sqrMagnitude < 0.01f)
+        {
+            flatForward = fallbackTransform.up;
+            flatForward.y = 0f;
+        }
+
+        if (flatForward.sqrMagnitude < 0.01f)
+            flatForward = Vector3.forward;
+
+        return flatForward.normalized;
+    }
 
     private NoteView CreateNoteAt(string anchorName, Vector3 position, Quaternion rotation, bool selectOnCreate, string title, string content)
     {
@@ -232,9 +293,15 @@ public class PlaceNote : MonoBehaviour
             if (noteView == null)
                 continue;
 
-            noteView.OpenEditor();
-            Debug.Log("Existing note UI tapped; opening editor instead of creating a new note.");
-            return true;
+            Button noteButton = result.gameObject.GetComponentInParent<Button>();
+            if (noteButton != null)
+            {
+                if (noteButton.IsActive() && noteButton.IsInteractable())
+                    noteButton.onClick.Invoke();
+
+                Debug.Log("Existing note button tapped; handled note UI button.");
+                return true;
+            }
         }
 
         return false;
