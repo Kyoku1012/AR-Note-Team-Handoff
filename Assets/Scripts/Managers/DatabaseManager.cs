@@ -106,4 +106,17 @@ public class DatabaseManager : MonoBehaviour
         notes.RemoveAt(index);
         SaveNotes(notes);
     }
+
+    public void ClearAllSavedData()
+    {
+        try
+        {
+            if (File.Exists(SaveFilePath))
+                File.Delete(SaveFilePath);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"Failed to clear saved note data: {ex.Message}");
+        }
+    }
 }

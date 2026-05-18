@@ -50,9 +50,6 @@ public class NoteManager : MonoBehaviour
     {
         SelectedNote = view;
         NoteSelected?.Invoke(view);
-
-        if (view != null)
-            NoteEditPanel.EnsureExists().Open(view);
     }
 
     public void AddNote(NoteData note)
@@ -138,6 +135,29 @@ public class NoteManager : MonoBehaviour
 
         note.isCompleted = isCompleted;
         UpdateNote(note);
+    }
+
+    public void ClearAllNotesAndData()
+    {
+        foreach (NoteData note in allNotes)
+        {
+            if (note != null)
+                ReminderManager.Instance?.Cancel(note);
+        }
+
+        foreach (NoteView view in activeViews.Values.ToList())
+        {
+            if (view == null) continue;
+            Destroy(view.AnchorRoot != null ? view.AnchorRoot : view.gameObject);
+        }
+
+        activeViews.Clear();
+        allNotes.Clear();
+        SelectedNote = null;
+
+        VoiceNoteManager.Instance?.ClearAllVoiceFiles();
+        EnsureDatabaseManager();
+        databaseManager?.ClearAllSavedData();
     }
 
     public void SaveNotes()

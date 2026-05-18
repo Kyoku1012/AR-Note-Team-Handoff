@@ -122,6 +122,19 @@ public class VoiceNoteManager : MonoBehaviour
         audioSource.Play();
     }
 
+    public void ClearAllVoiceFiles()
+    {
+        try
+        {
+            if (Directory.Exists(VoiceFolder))
+                Directory.Delete(VoiceFolder, true);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to clear voice notes: {ex.Message}");
+        }
+    }
+
     private void ClearRecording()
     {
         recordingNote = null;

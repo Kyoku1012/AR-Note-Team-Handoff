@@ -41,6 +41,11 @@ public class NoteEditPanel : MonoBehaviour
         if (currentNote == null || currentNote.Data == null)
             return;
 
+        NoteManager.Instance?.SelectNote(currentNote);
+        StylePanelController stylePanel = FindObjectOfType<StylePanelController>();
+        if (stylePanel != null)
+            stylePanel.SetSelectedNote(currentNote);
+
         NoteData data = currentNote.Data;
         titleInput.text = data.title;
         contentInput.text = data.content;
@@ -63,7 +68,21 @@ public class NoteEditPanel : MonoBehaviour
     {
         NoteView selected = NoteManager.Instance == null ? null : NoteManager.Instance.SelectedNote ?? NoteManager.Instance.GetFirstView();
         if (selected != null)
+        {
             Open(selected);
+            return;
+        }
+
+#if UNITY_EDITOR
+        // In editor simulation, allow one-click creation+open when no note is selected yet.
+        PlaceNote placeNote = FindObjectOfType<PlaceNote>();
+        if (placeNote != null)
+        {
+            NoteView editorNote = placeNote.CreateEditorTestNote();
+            if (editorNote != null)
+                Open(editorNote);
+        }
+#endif
     }
 
     private void Save()
@@ -134,7 +153,7 @@ public class NoteEditPanel : MonoBehaviour
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        CreateLabel(parent, "Edit AR Note", font, 24, new Vector2(0, -24), new Vector2(340, 34));
+        CreateTopAnchoredLabel(parent, "Edit AR Note", font, 24, new Vector2(0, -24), new Vector2(340, 34));
         titleInput = CreateInput(parent, "Title", font, new Vector2(0, -72), new Vector2(340, 34));
         contentInput = CreateInput(parent, "Content", font, new Vector2(0, -116), new Vector2(340, 34));
         annotationInput = CreateInput(parent, "Annotation", font, new Vector2(0, -160), new Vector2(340, 34));
@@ -144,7 +163,7 @@ public class NoteEditPanel : MonoBehaviour
         reminderToggle = CreateToggle(parent, "Reminder", font, new Vector2(-105, -244));
         reminderInput = CreateInput(parent, "yyyy-MM-dd HH:mm", font, new Vector2(70, -244), new Vector2(205, 32));
 
-        voiceStatusText = CreateLabel(parent, "No voice memo", font, 15, new Vector2(0, -286), new Vector2(340, 24));
+        voiceStatusText = CreateTopAnchoredLabel(parent, "No voice memo", font, 15, new Vector2(0, -286), new Vector2(340, 24));
 
         CreateButton(parent, "Record", font, new Vector2(-126, -326), new Vector2(94, 34), ToggleRecord);
         CreateButton(parent, "Play", font, new Vector2(0, -326), new Vector2(94, 34), PlayVoice);
@@ -165,7 +184,7 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = new Vector2(0, -24);
-        rect.sizeDelta = new Vector2(390, 430);
+        rect.sizeDelta = new Vector2(390, 440);
 
         Image image = panel.AddComponent<Image>();
         image.color = new Color(0.08f, 0.08f, 0.08f, 0.88f);
@@ -175,10 +194,22 @@ public class NoteEditPanel : MonoBehaviour
     private static void CreateLauncher(Transform parent, NoteEditPanel panel)
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        CreateButton(parent, "Edit Note", font, new Vector2(0, -32), new Vector2(120, 40), panel.OpenSelected);
+        CreateButton(parent, "Edit Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.OpenSelected);
 #if UNITY_EDITOR
-        CreateButton(parent, "Test Note", font, new Vector2(0, -82), new Vector2(120, 40), panel.CreateEditorTestNote);
+        CreateButton(parent, "Test Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.CreateEditorTestNote);
 #endif
+        CreateButton(parent, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
+    }
+
+    private void ClearAllData()
+    {
+        if (NoteManager.Instance == null)
+            return;
+
+        Close();
+        currentNote = null;
+        NoteManager.Instance.ClearAllNotesAndData();
+        Debug.Log("All notes and local voice files have been cleared.");
     }
 
 #if UNITY_EDITOR
@@ -195,7 +226,7 @@ public class NoteEditPanel : MonoBehaviour
     }
 #endif
 
-    private static Text CreateLabel(Transform parent, string text, Font font, int size, Vector2 position, Vector2 dimensions)
+    private static Text CreateTopAnchoredLabel(Transform parent, string text, Font font, int size, Vector2 position, Vector2 dimensions)
     {
         GameObject obj = new GameObject(text + "Label");
         obj.transform.SetParent(parent, false);
@@ -213,6 +244,28 @@ public class NoteEditPanel : MonoBehaviour
         label.fontSize = size;
         label.color = Color.white;
         label.alignment = TextAnchor.MiddleCenter;
+        label.raycastTarget = false;
+        return label;
+    }
+
+    private static Text CreateCenteredChildLabel(Transform parent, string text, Font font, int size, Color color, TextAnchor alignment, Vector2 offsetMin, Vector2 offsetMax)
+    {
+        GameObject obj = new GameObject(text + "Label");
+        obj.transform.SetParent(parent, false);
+
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = offsetMin;
+        rect.offsetMax = offsetMax;
+
+        Text label = obj.AddComponent<Text>();
+        label.text = text;
+        label.font = font;
+        label.fontSize = size;
+        label.color = color;
+        label.alignment = alignment;
+        label.raycastTarget = false;
         return label;
     }
 
@@ -256,6 +309,7 @@ public class NoteEditPanel : MonoBehaviour
         text.fontSize = 16;
         text.color = color;
         text.alignment = TextAnchor.MiddleLeft;
+        text.raycastTarget = false;
         return text;
     }
 
@@ -287,8 +341,7 @@ public class NoteEditPanel : MonoBehaviour
         checkImage.color = new Color(0.2f, 0.8f, 0.35f);
         toggle.graphic = checkImage;
 
-        Text text = CreateLabel(obj.transform, label, font, 15, new Vector2(46, 0), new Vector2(100, 24));
-        text.alignment = TextAnchor.MiddleLeft;
+        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.white, TextAnchor.MiddleLeft, new Vector2(30, 0), new Vector2(0, 0));
         return toggle;
     }
 
@@ -310,8 +363,7 @@ public class NoteEditPanel : MonoBehaviour
         Button button = obj.AddComponent<Button>();
         button.onClick.AddListener(action);
 
-        Text text = CreateLabel(obj.transform, label, font, 15, Vector2.zero, dimensions);
-        text.color = Color.black;
+        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         return button;
     }
 }
