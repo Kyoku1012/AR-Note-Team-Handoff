@@ -176,7 +176,24 @@ public class NoteEditPanel : MonoBehaviour
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         CreateButton(parent, "Edit Note", font, new Vector2(0, -32), new Vector2(120, 40), panel.OpenSelected);
+#if UNITY_EDITOR
+        CreateButton(parent, "Test Note", font, new Vector2(0, -82), new Vector2(120, 40), panel.CreateEditorTestNote);
+#endif
     }
+
+#if UNITY_EDITOR
+    private void CreateEditorTestNote()
+    {
+        PlaceNote placeNote = FindObjectOfType<PlaceNote>();
+        if (placeNote == null)
+        {
+            Debug.LogWarning("No PlaceNote component found in the scene. Open MainScene before creating an editor test note.");
+            return;
+        }
+
+        placeNote.CreateEditorTestNote();
+    }
+#endif
 
     private static Text CreateLabel(Transform parent, string text, Font font, int size, Vector2 position, Vector2 dimensions)
     {

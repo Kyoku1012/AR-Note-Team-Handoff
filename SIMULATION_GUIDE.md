@@ -46,8 +46,14 @@ For final marks/demo, always test on a real Android device.
 2. Press Play.
 3. Confirm there are no red console errors.
 4. Confirm the `Edit Note` button appears.
-5. Run `AR Note > Run Readiness Check`.
-6. Stop Play Mode.
+5. Press `N` or click `Test Note` to create an editor-only test note in front of the camera.
+6. Use `Edit Note` to change title, content, annotation, completion, visibility, reminder fields, and voice controls.
+7. Press Save and confirm the note updates.
+8. Stop Play Mode, press Play again, and confirm saved test notes reload.
+9. Run `AR Note > Run Readiness Check`.
+10. Stop Play Mode.
+
+The `Test Note` button and `N` shortcut bypass Vuforia plane detection. Use them only for Editor testing of note data, save/load, editing, styling, and UI panel behavior. Real AR placement still needs Android device testing.
 
 If the project does not compile:
 
@@ -55,6 +61,33 @@ If the project does not compile:
 - Confirm `com.unity.mobile.notifications` is installed.
 - Confirm scripts are under `Assets/Scripts`.
 - Do not move scripts without moving their `.meta` files.
+
+## 3.1 Testing Notes Without Ground Plane Detection
+
+Vuforia Ground Plane can fail to produce plane hits in the Unity Editor. This is expected. To test note data and UI anyway:
+
+1. Open `MainScene`.
+2. Press Play.
+3. Click `Test Note`, or press the `N` key.
+4. A note is created about 1.2 meters in front of the active camera.
+5. The note is saved through the same `NoteManager` and `DatabaseManager` flow as real AR notes.
+6. Edit the note with `Edit Note`.
+7. Restart Play Mode to confirm the note reloads from local JSON.
+
+This tests:
+
+- `NoteData` creation.
+- `NoteManager.AddNote`.
+- `DatabaseManager.SaveNotes` and `LoadNotes`.
+- `NoteView.RefreshFromData`.
+- `NoteEditPanel` title/content/annotation/completed/visibility fields.
+- Style panel integration with the selected note.
+
+This does not test:
+
+- Vuforia surface detection.
+- Real Android anchor stability.
+- Physical-world note position accuracy.
 
 ## 4. Android Build Setup
 

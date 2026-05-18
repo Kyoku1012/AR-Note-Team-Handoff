@@ -30,6 +30,12 @@ public class PlaceNote : MonoBehaviour
         }
 
 #if UNITY_EDITOR
+        if (Input.GetKeyDown(KeyCode.N))
+        {
+            CreateEditorTestNote();
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0))
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
@@ -48,15 +54,45 @@ public class PlaceNote : MonoBehaviour
         if (result == null || notePrefab == null) return;
 
         Quaternion finalRotation = CalculateReadableRotation(result);
-        GameObject anchorObj = CreateAnchor("NoteAnchor", result.Position, finalRotation);
+        CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "Tap Edit to add details");
+    }
+
+#if UNITY_EDITOR
+    public NoteView CreateEditorTestNote()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("Editor test notes can only be created in Play Mode.");
+            return null;
+        }
+
+        if (notePrefab == null)
+        {
+            Debug.LogWarning("PlaceNote cannot create an editor test note because notePrefab is not assigned.");
+            return null;
+        }
+
+        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
+        Vector3 forward = cameraTransform.forward.sqrMagnitude > 0.01f ? cameraTransform.forward : Vector3.forward;
+        Vector3 position = cameraTransform.position + forward.normalized * 1.2f;
+        Quaternion rotation = Quaternion.LookRotation(-forward.normalized, Vector3.up);
+
+        Debug.Log("Created editor test note without Vuforia plane detection. Press N again to create another.");
+        return CreateNoteAt("EditorTestNoteAnchor", position, rotation, true, "Editor Test Note", "Created without ground-plane detection");
+    }
+#endif
+
+    private NoteView CreateNoteAt(string anchorName, Vector3 position, Quaternion rotation, bool selectOnCreate, string title, string content)
+    {
+        GameObject anchorObj = CreateAnchor(anchorName, position, rotation);
         GameObject instantiatedNote = Instantiate(notePrefab, anchorObj.transform);
         instantiatedNote.transform.localPosition = new Vector3(0, offset, 0);
         instantiatedNote.transform.localRotation = Quaternion.identity;
 
         NoteData data = new NoteData
         {
-            title = "New Note",
-            content = "Tap Edit to add details",
+            title = title,
+            content = content,
             annotation = "",
             isVisible = true,
             colorName = "yellow",
@@ -68,13 +104,15 @@ public class PlaceNote : MonoBehaviour
         data.ApplyDefaults();
 
         NoteView noteView = instantiatedNote.GetComponent<NoteView>() ?? instantiatedNote.AddComponent<NoteView>();
-        noteView.Initialize(data, anchorObj);
+        noteView.Initialize(data, anchorObj, selectOnCreate);
 
         NoteManager.Instance?.AddNote(data);
 
         StylePanelController stylePanel = FindObjectOfType<StylePanelController>();
         if (stylePanel != null)
             stylePanel.SetSelectedNote(noteView);
+
+        return noteView;
     }
 
     private IEnumerator RestoreSavedNotes()
