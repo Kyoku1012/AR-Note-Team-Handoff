@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
 using Vuforia;
 
 public class PlaceNote : MonoBehaviour
@@ -24,12 +26,12 @@ public class PlaceNote : MonoBehaviour
         {
             Vector2 touchPosition = Input.GetTouch(0).position;
 
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))
-            {
-                if (TryOpenExistingNoteFromUi(touchPosition))
-                    return;
+            if (TryOpenExistingNoteFromUi(touchPosition))
+                return;
 
-                Debug.Log("Touch is over non-note UI, skip plane hit test.");
+            if (HandleBlockingUiTap(touchPosition))
+            {
+                Debug.Log("Touch is over blocking UI, skip plane hit test.");
                 return;
             }
 
@@ -42,7 +44,7 @@ public class PlaceNote : MonoBehaviour
 #if UNITY_EDITOR
         if (Input.GetKeyDown(KeyCode.N))
         {
-            CreateEditorTestNote();
+            CreateDebugTestNote();
             return;
         }
 
@@ -50,12 +52,12 @@ public class PlaceNote : MonoBehaviour
         {
             Vector2 mousePosition = Input.mousePosition;
 
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-            {
-                if (TryOpenExistingNoteFromUi(mousePosition))
-                    return;
+            if (TryOpenExistingNoteFromUi(mousePosition))
+                return;
 
-                Debug.Log("Mouse is over non-note UI, skip plane hit test.");
+            if (HandleBlockingUiTap(mousePosition))
+            {
+                Debug.Log("Mouse is over blocking UI, skip plane hit test.");
                 return;
             }
 
@@ -75,18 +77,17 @@ public class PlaceNote : MonoBehaviour
         CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "Tap Edit to add details");
     }
 
-#if UNITY_EDITOR
-    public NoteView CreateEditorTestNote()
+    public NoteView CreateDebugTestNote()
     {
         if (!Application.isPlaying)
         {
-            Debug.LogWarning("Editor test notes can only be created in Play Mode.");
+            Debug.LogWarning("Debug test notes can only be created in Play Mode.");
             return null;
         }
 
         if (notePrefab == null)
         {
-            Debug.LogWarning("PlaceNote cannot create an editor test note because notePrefab is not assigned.");
+            Debug.LogWarning("PlaceNote cannot create a debug test note because notePrefab is not assigned.");
             return null;
         }
 
@@ -95,8 +96,14 @@ public class PlaceNote : MonoBehaviour
         Vector3 position = cameraTransform.position + forward.normalized * 1.2f;
         Quaternion rotation = Quaternion.LookRotation(-forward.normalized, Vector3.up);
 
-        Debug.Log("Created editor test note without Vuforia plane detection. Press N again to create another.");
-        return CreateNoteAt("EditorTestNoteAnchor", position, rotation, true, "Editor Test Note", "Created without ground-plane detection");
+        Debug.Log("Created debug test note without Vuforia plane detection.");
+        return CreateNoteAt("DebugTestNoteAnchor", position, rotation, true, "Debug Test Note", "Created without ground-plane detection");
+    }
+
+#if UNITY_EDITOR
+    public NoteView CreateEditorTestNote()
+    {
+        return CreateDebugTestNote();
     }
 #endif
 
@@ -124,7 +131,7 @@ public class PlaceNote : MonoBehaviour
         NoteView noteView = instantiatedNote.GetComponent<NoteView>() ?? instantiatedNote.AddComponent<NoteView>();
         noteView.Initialize(data, anchorObj, selectOnCreate);
 
-        NoteManager.Instance?.AddNote(data);
+        NoteManager.Instance?.AddNote(noteView.Data);
 
         StylePanelController stylePanel = FindObjectOfType<StylePanelController>();
         if (stylePanel != null)
@@ -186,9 +193,6 @@ public class PlaceNote : MonoBehaviour
 
     private bool TryOpenExistingNote(Vector2 screenPosition)
     {
-        if (TryOpenExistingNoteFromUi(screenPosition))
-            return true;
-
         Camera camera = Camera.main;
         if (camera == null)
             return false;
@@ -234,5 +238,109 @@ public class PlaceNote : MonoBehaviour
         }
 
         return false;
+    }
+
+    private bool HandleBlockingUiTap(Vector2 screenPosition)
+    {
+        if (EventSystem.current == null)
+            return false;
+
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (RaycastResult result in results)
+        {
+            GameObject hitObject = result.gameObject;
+            if (hitObject == null)
+                continue;
+
+            if (hitObject.GetComponentInParent<NoteView>() != null)
+                continue;
+
+            if (TryHandleInteractiveUi(hitObject))
+                return true;
+        }
+
+        foreach (RaycastResult result in results)
+        {
+            GameObject hitObject = result.gameObject;
+            if (hitObject == null)
+                continue;
+
+            // Note UI should be handled by TryOpenExistingNoteFromUi, not treated as a blocker.
+            if (hitObject.GetComponentInParent<NoteView>() != null)
+                continue;
+
+            if (IsBusinessUiBlocker(hitObject))
+            {
+                Debug.Log("Touch hit non-interactive business UI: " + hitObject.name);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryHandleInteractiveUi(GameObject hitObject)
+    {
+        RuntimeButtonActionRelay relay = hitObject.GetComponentInParent<RuntimeButtonActionRelay>();
+        if (relay != null)
+        {
+            relay.Invoke();
+            Debug.Log("Manually invoked runtime UI relay: " + relay.name);
+            return true;
+        }
+
+        Button button = hitObject.GetComponentInParent<Button>();
+        if (button != null)
+        {
+            if (button.IsActive() && button.IsInteractable())
+            {
+                button.onClick.Invoke();
+                Debug.Log("Manually invoked UI button: " + button.name);
+            }
+            return true;
+        }
+
+        Toggle toggle = hitObject.GetComponentInParent<Toggle>();
+        if (toggle != null)
+        {
+            if (toggle.IsActive() && toggle.IsInteractable())
+            {
+                toggle.isOn = !toggle.isOn;
+                Debug.Log("Manually toggled UI control: " + toggle.name);
+            }
+            return true;
+        }
+
+        TMP_InputField tmpInput = hitObject.GetComponentInParent<TMP_InputField>();
+        if (tmpInput != null)
+        {
+            tmpInput.ActivateInputField();
+            Debug.Log("Activated TMP input field: " + tmpInput.name);
+            return true;
+        }
+
+        InputField input = hitObject.GetComponentInParent<InputField>();
+        if (input != null)
+        {
+            input.ActivateInputField();
+            Debug.Log("Activated input field: " + input.name);
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsBusinessUiBlocker(GameObject hitObject)
+    {
+        return hitObject.GetComponentInParent<NoteEditPanel>() != null
+            || hitObject.GetComponentInParent<StylePanelController>() != null
+            || hitObject.GetComponentInParent<Selectable>() != null;
     }
 }

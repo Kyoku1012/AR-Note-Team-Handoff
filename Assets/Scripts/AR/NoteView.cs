@@ -8,15 +8,15 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
     public NoteData Data { get; private set; }
     public GameObject AnchorRoot { get; private set; }
 
-    private TMP_Text titleText;
-    private TMP_Text contentText;
+    private TMP_Text[] titleTexts;
+    private TMP_Text[] contentTexts;
     private NoteStyleManager styleManager;
     private Canvas[] noteCanvases;
     private AudioSource audioSource;
 
     public void Initialize(NoteData data, GameObject anchorRoot, bool selectOnCreate = true)
     {
-        Data = data;
+        Data = data == null ? new NoteData() : data.Clone();
         AnchorRoot = anchorRoot;
         Data.ApplyDefaults();
 
@@ -60,11 +60,19 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         Data.ApplyDefaults();
         CacheComponents();
 
-        if (titleText != null)
-            titleText.text = Data.isCompleted ? Data.title + " (Done)" : Data.title;
+        string displayTitle = Data.isCompleted ? Data.title + " (Done)" : Data.title;
+        foreach (TMP_Text text in titleTexts)
+        {
+            if (text != null)
+                text.text = displayTitle;
+        }
 
-        if (contentText != null)
-            contentText.text = string.IsNullOrWhiteSpace(Data.content) ? Data.annotation : Data.content;
+        string displayContent = string.IsNullOrWhiteSpace(Data.content) ? Data.annotation : Data.content;
+        foreach (TMP_Text text in contentTexts)
+        {
+            if (text != null)
+                text.text = displayContent;
+        }
 
         if (styleManager != null)
             styleManager.ApplyStyle(Data);
@@ -129,11 +137,11 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         if (styleManager == null)
             styleManager = GetComponentInChildren<NoteStyleManager>(true);
 
-        if (titleText == null)
-            titleText = FindText("TitleText-NeedtoEdite") ?? FindText("TitleText");
+        if (titleTexts == null || titleTexts.Length == 0)
+            titleTexts = FindTexts("TitleText-NeedtoEdite", "TitleText");
 
-        if (contentText == null)
-            contentText = FindText("ContentText-NeedtoEdite") ?? FindText("ContentText");
+        if (contentTexts == null || contentTexts.Length == 0)
+            contentTexts = FindTexts("ContentText-NeedtoEdite", "ContentText");
 
         if (noteCanvases == null || noteCanvases.Length == 0)
             noteCanvases = GetComponentsInChildren<Canvas>(true);
@@ -159,10 +167,24 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         button.onClick.AddListener(action);
     }
 
-    private TMP_Text FindText(string childName)
+    private TMP_Text[] FindTexts(params string[] childNames)
     {
-        Transform child = FindDeepChild(transform, childName);
-        return child == null ? null : child.GetComponent<TMP_Text>();
+        System.Collections.Generic.List<TMP_Text> texts = new System.Collections.Generic.List<TMP_Text>();
+        TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>(true);
+
+        foreach (string childName in childNames)
+        {
+            foreach (TMP_Text text in allTexts)
+            {
+                if (text != null && text.name == childName && !texts.Contains(text))
+                    texts.Add(text);
+            }
+        }
+
+        if (texts.Count == 0)
+            Debug.LogWarning("NoteView could not find note text fields on " + name + ".");
+
+        return texts.ToArray();
     }
 
     private void SetCanvasesVisible(bool visible)

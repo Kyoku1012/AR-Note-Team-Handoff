@@ -34,6 +34,12 @@ public class NoteManager : MonoBehaviour
         if (view == null || view.Data == null || string.IsNullOrWhiteSpace(view.Data.id))
             return;
 
+        if (activeViews.TryGetValue(view.Data.id, out NoteView existingView) && existingView != null && existingView != view)
+        {
+            Debug.LogWarning("Duplicate note id detected at runtime. Assigning a new id to keep note views independent.");
+            view.Data.id = Guid.NewGuid().ToString();
+        }
+
         activeViews[view.Data.id] = view;
     }
 
@@ -183,8 +189,17 @@ public class NoteManager : MonoBehaviour
 
         List<NoteData> loaded = databaseManager.LoadNotes();
         allNotes = loaded ?? new List<NoteData>();
+        HashSet<string> seenIds = new HashSet<string>();
         foreach (NoteData note in allNotes)
+        {
             note.ApplyDefaults();
+            if (!seenIds.Add(note.id))
+            {
+                Debug.LogWarning("Duplicate saved note id detected. Assigning a new id while loading.");
+                note.id = Guid.NewGuid().ToString();
+                seenIds.Add(note.id);
+            }
+        }
     }
 
     private void EnsureDatabaseManager()

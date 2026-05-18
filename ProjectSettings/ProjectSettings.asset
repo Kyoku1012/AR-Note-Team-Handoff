@@ -272,7 +272,14 @@ PlayerSettings:
   AndroidMinifyDebug: 0
   AndroidValidateAppBundleSize: 1
   AndroidAppBundleSizeToValidate: 150
-  m_BuildTargetIcons: []
+  m_BuildTargetIcons:
+  - m_BuildTarget: 
+    m_Icons:
+    - serializedVersion: 2
+      m_Icon: {fileID: 2800000, guid: a2381f1b063a89d4c808bf0bd45ef876, type: 3}
+      m_Width: 128
+      m_Height: 128
+      m_Kind: 0
   m_BuildTargetPlatformIcons:
   - m_BuildTarget: iPhone
     m_Icons:
@@ -910,12 +917,12 @@ PlayerSettings:
     m_VersionCode: 1
     m_VersionName: 
   apiCompatibilityLevel: 6
-  activeInputHandler: 2
+  activeInputHandler: 0
   windowsGamepadBackendHint: 0
   cloudProjectId: 98ce38af-d08c-40ee-bb2a-a38b54137b15
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: AR-Note-Team-Handoff
+  projectName: AR-Note-Member1test
   organizationId: unity_6febb6a84add408ed1ef
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0

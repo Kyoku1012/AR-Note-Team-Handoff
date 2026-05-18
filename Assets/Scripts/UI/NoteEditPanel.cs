@@ -1,5 +1,7 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 public class NoteEditPanel : MonoBehaviour
@@ -26,6 +28,7 @@ public class NoteEditPanel : MonoBehaviour
         canvas.sortingOrder = 50;
         canvasObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         canvasObject.AddComponent<GraphicRaycaster>();
+        EnsureEventSystem();
 
         GameObject panelObject = CreatePanel(canvasObject.transform);
         NoteEditPanel panel = panelObject.AddComponent<NoteEditPanel>();
@@ -73,16 +76,20 @@ public class NoteEditPanel : MonoBehaviour
             return;
         }
 
-#if UNITY_EDITOR
-        // In editor simulation, allow one-click creation+open when no note is selected yet.
+        if (!ShouldShowDebugTools())
+        {
+            Debug.LogWarning("Edit Note clicked, but no note is selected. Place a note first or use an Android/Editor test build.");
+            return;
+        }
+
+        Debug.Log("Edit Note clicked with no selected note; creating a test note for interaction testing.");
         PlaceNote placeNote = FindObjectOfType<PlaceNote>();
         if (placeNote != null)
         {
-            NoteView editorNote = placeNote.CreateEditorTestNote();
-            if (editorNote != null)
-                Open(editorNote);
+            NoteView debugNote = placeNote.CreateDebugTestNote();
+            if (debugNote != null)
+                Open(debugNote);
         }
-#endif
     }
 
     private void Save()
@@ -195,9 +202,10 @@ public class NoteEditPanel : MonoBehaviour
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
         CreateButton(parent, "Edit Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.OpenSelected);
-#if UNITY_EDITOR
-        CreateButton(parent, "Test Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.CreateEditorTestNote);
-#endif
+
+        if (ShouldShowDebugTools())
+            CreateButton(parent, "Test Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.CreateDebugTestNote);
+
         CreateButton(parent, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
     }
 
@@ -212,19 +220,45 @@ public class NoteEditPanel : MonoBehaviour
         Debug.Log("All notes and local voice files have been cleared.");
     }
 
-#if UNITY_EDITOR
-    private void CreateEditorTestNote()
+    private void CreateDebugTestNote()
     {
+        if (!ShouldShowDebugTools())
+            return;
+
         PlaceNote placeNote = FindObjectOfType<PlaceNote>();
         if (placeNote == null)
         {
-            Debug.LogWarning("No PlaceNote component found in the scene. Open MainScene before creating an editor test note.");
+            Debug.LogWarning("No PlaceNote component found in the scene. Open MainScene before creating a debug test note.");
             return;
         }
 
-        placeNote.CreateEditorTestNote();
+        NoteView debugNote = placeNote.CreateDebugTestNote();
+        if (debugNote != null)
+            Open(debugNote);
     }
-#endif
+
+    private static bool ShouldShowDebugTools()
+    {
+        return Application.isEditor || Debug.isDebugBuild || Application.platform == RuntimePlatform.Android;
+    }
+
+    private static void EnsureEventSystem()
+    {
+        if (EventSystem.current != null)
+        {
+            if (EventSystem.current.GetComponent<StandaloneInputModule>() == null)
+            {
+                EventSystem.current.gameObject.AddComponent<StandaloneInputModule>();
+                Debug.Log("StandaloneInputModule added to existing EventSystem for note UI compatibility.");
+            }
+            return;
+        }
+
+        GameObject eventSystemObject = new GameObject("EventSystem");
+        eventSystemObject.AddComponent<EventSystem>();
+        eventSystemObject.AddComponent<StandaloneInputModule>();
+        Debug.Log("Runtime EventSystem created for note UI.");
+    }
 
     private static Text CreateTopAnchoredLabel(Transform parent, string text, Font font, int size, Vector2 position, Vector2 dimensions)
     {
@@ -361,9 +395,32 @@ public class NoteEditPanel : MonoBehaviour
         image.color = new Color(0.95f, 0.95f, 0.95f, 1f);
 
         Button button = obj.AddComponent<Button>();
-        button.onClick.AddListener(action);
+        RuntimeButtonActionRelay relay = obj.AddComponent<RuntimeButtonActionRelay>();
+        relay.Configure(action);
+        button.onClick.AddListener(relay.Invoke);
 
         CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         return button;
+    }
+}
+
+public class RuntimeButtonActionRelay : MonoBehaviour
+{
+    private UnityAction action;
+
+    public void Configure(UnityAction newAction)
+    {
+        action = newAction;
+    }
+
+    public void Invoke()
+    {
+        if (action == null)
+        {
+            Debug.LogWarning("Runtime button action is missing on " + name);
+            return;
+        }
+
+        action.Invoke();
     }
 }
