@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Vuforia;
@@ -25,7 +26,10 @@ public class PlaceNote : MonoBehaviour
 
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId))
             {
-                Debug.Log("Touch is over UI, skip plane hit test.");
+                if (TryOpenExistingNoteFromUi(touchPosition))
+                    return;
+
+                Debug.Log("Touch is over non-note UI, skip plane hit test.");
                 return;
             }
 
@@ -48,7 +52,10 @@ public class PlaceNote : MonoBehaviour
 
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             {
-                Debug.Log("Mouse is over UI, skip plane hit test.");
+                if (TryOpenExistingNoteFromUi(mousePosition))
+                    return;
+
+                Debug.Log("Mouse is over non-note UI, skip plane hit test.");
                 return;
             }
 
@@ -179,6 +186,9 @@ public class PlaceNote : MonoBehaviour
 
     private bool TryOpenExistingNote(Vector2 screenPosition)
     {
+        if (TryOpenExistingNoteFromUi(screenPosition))
+            return true;
+
         Camera camera = Camera.main;
         if (camera == null)
             return false;
@@ -194,5 +204,35 @@ public class PlaceNote : MonoBehaviour
         noteView.OpenEditor();
         Debug.Log("Existing note tapped; opening editor instead of creating a new note.");
         return true;
+    }
+
+    private bool TryOpenExistingNoteFromUi(Vector2 screenPosition)
+    {
+        if (EventSystem.current == null)
+            return false;
+
+        PointerEventData pointerData = new PointerEventData(EventSystem.current)
+        {
+            position = screenPosition
+        };
+
+        List<RaycastResult> results = new List<RaycastResult>();
+        EventSystem.current.RaycastAll(pointerData, results);
+
+        foreach (RaycastResult result in results)
+        {
+            if (result.gameObject == null)
+                continue;
+
+            NoteView noteView = result.gameObject.GetComponentInParent<NoteView>();
+            if (noteView == null)
+                continue;
+
+            noteView.OpenEditor();
+            Debug.Log("Existing note UI tapped; opening editor instead of creating a new note.");
+            return true;
+        }
+
+        return false;
     }
 }

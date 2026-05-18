@@ -130,10 +130,10 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
             styleManager = GetComponentInChildren<NoteStyleManager>(true);
 
         if (titleText == null)
-            titleText = FindText("TitleText") ?? FindText("TitleText-NeedtoEdite");
+            titleText = FindText("TitleText-NeedtoEdite") ?? FindText("TitleText");
 
         if (contentText == null)
-            contentText = FindText("ContentText") ?? FindText("ContentText-NeedtoEdite");
+            contentText = FindText("ContentText-NeedtoEdite") ?? FindText("ContentText");
 
         if (noteCanvases == null || noteCanvases.Length == 0)
             noteCanvases = GetComponentsInChildren<Canvas>(true);
