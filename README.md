@@ -4,6 +4,7 @@
 ## Implemented group-project feature set
 
 - Vuforia Ground Plane placement creates persistent AR notes with saved world position and rotation.
+- The runtime UI includes **Create Note** for center-screen note creation when plane detection is not available.
 - Notes are stored locally in `Application.persistentDataPath/ar_notes.json`.
 - A selected note can be edited through the runtime **Edit Note** panel: title, content, annotation, completed state, visibility, reminder time, delete, and voice memo controls.
 - The existing style panel now edits the real selected note instead of test data, including color, icon, and priority.
@@ -15,9 +16,10 @@
 1. Build and run on Android.
 2. Scan for a surface with Vuforia Ground Plane.
 3. Tap a real-world surface to place a note.
-4. Use **Edit Note** to update note details, reminder time (`yyyy-MM-dd HH:mm`), completion, visibility, and voice memo.
-5. Use the style buttons to apply color, icon, and priority to the selected note.
-6. Restart the app to confirm saved notes restore from local JSON.
+4. Use **Create Note** to create a center-screen note facing the active camera if plane detection is unavailable.
+5. Use **Edit Note** to update note details, reminder time (`yyyy-MM-dd HH:mm`), completion, visibility, and voice memo.
+6. Use the style buttons to apply color, icon, and priority to the selected note.
+7. Restart the app to confirm saved notes restore from local JSON.
 
 ## Team testing and amendment
 

@@ -13,6 +13,8 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
     private NoteStyleManager styleManager;
     private Canvas[] noteCanvases;
     private AudioSource audioSource;
+    private LineRenderer selectionFrame;
+    private BoxCollider noteCollider;
 
     public void Initialize(NoteData data, GameObject anchorRoot, bool selectOnCreate = true)
     {
@@ -21,16 +23,34 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         Data.ApplyDefaults();
 
         CacheComponents();
+        NormalizeSelectionCollider();
         WireButtons();
         RefreshFromData();
 
         NoteManager.Instance?.RegisterView(this);
         if (selectOnCreate)
             NoteManager.Instance?.SelectNote(this);
+        else
+            SetSelectedVisual(false);
+    }
+
+    private void OnEnable()
+    {
+        if (NoteManager.Instance != null)
+            NoteManager.Instance.NoteSelected += HandleNoteSelected;
+    }
+
+    private void OnDisable()
+    {
+        if (NoteManager.Instance != null)
+            NoteManager.Instance.NoteSelected -= HandleNoteSelected;
     }
 
     private void OnDestroy()
     {
+        if (NoteManager.Instance != null)
+            NoteManager.Instance.NoteSelected -= HandleNoteSelected;
+
         NoteManager.Instance?.UnregisterView(this);
     }
 
@@ -51,6 +71,14 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         StylePanelController stylePanel = FindObjectOfType<StylePanelController>();
         if (stylePanel != null)
             stylePanel.SetSelectedNote(this);
+    }
+
+    public void SetSelectedVisual(bool isSelected)
+    {
+        EnsureSelectionFrame();
+
+        if (selectionFrame != null)
+            selectionFrame.gameObject.SetActive(isSelected);
     }
 
     public void RefreshFromData()
@@ -145,6 +173,16 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
         if (noteCanvases == null || noteCanvases.Length == 0)
             noteCanvases = GetComponentsInChildren<Canvas>(true);
+
+        if (noteCollider == null)
+            noteCollider = GetComponent<BoxCollider>() ?? GetComponentInChildren<BoxCollider>(true);
+
+        EnsureSelectionFrame();
+    }
+
+    private void HandleNoteSelected(NoteView selected)
+    {
+        SetSelectedVisual(selected == this);
     }
 
     private void WireButtons()
@@ -196,6 +234,54 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
             if (canvas != null)
                 canvas.gameObject.SetActive(visible);
         }
+
+        if (selectionFrame != null)
+            selectionFrame.gameObject.SetActive(visible && NoteManager.Instance != null && NoteManager.Instance.SelectedNote == this);
+    }
+
+    private void EnsureSelectionFrame()
+    {
+        if (selectionFrame != null)
+            return;
+
+        GameObject frameObject = new GameObject("SelectedNoteFrame");
+        frameObject.transform.SetParent(transform, false);
+        frameObject.transform.localPosition = new Vector3(0f, 0f, -0.03f);
+        frameObject.transform.localRotation = Quaternion.identity;
+        frameObject.transform.localScale = Vector3.one;
+
+        selectionFrame = frameObject.AddComponent<LineRenderer>();
+        selectionFrame.useWorldSpace = false;
+        selectionFrame.loop = true;
+        selectionFrame.positionCount = 4;
+        selectionFrame.widthMultiplier = 0.01f;
+        selectionFrame.numCornerVertices = 2;
+        selectionFrame.numCapVertices = 2;
+        selectionFrame.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        selectionFrame.receiveShadows = false;
+        selectionFrame.material = new Material(Shader.Find("Sprites/Default"));
+        selectionFrame.startColor = new Color(0.1f, 0.9f, 1f, 1f);
+        selectionFrame.endColor = new Color(0.1f, 0.9f, 1f, 1f);
+
+        const float halfWidth = 0.32f;
+        const float halfHeight = 0.46f;
+        selectionFrame.SetPosition(0, new Vector3(-halfWidth, 0f, -halfHeight));
+        selectionFrame.SetPosition(1, new Vector3(-halfWidth, 0f, halfHeight));
+        selectionFrame.SetPosition(2, new Vector3(halfWidth, 0f, halfHeight));
+        selectionFrame.SetPosition(3, new Vector3(halfWidth, 0f, -halfHeight));
+        selectionFrame.gameObject.SetActive(false);
+    }
+
+    private void NormalizeSelectionCollider()
+    {
+        if (noteCollider == null)
+            noteCollider = GetComponent<BoxCollider>() ?? GetComponentInChildren<BoxCollider>(true);
+
+        if (noteCollider == null)
+            return;
+
+        noteCollider.center = new Vector3(0f, 0f, 0f);
+        noteCollider.size = new Vector3(0.7f, 1.0f, 0.08f);
     }
 
     private Transform FindDeepChild(Transform parent, string childName)

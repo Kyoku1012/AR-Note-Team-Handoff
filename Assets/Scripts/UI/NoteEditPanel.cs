@@ -76,19 +76,13 @@ public class NoteEditPanel : MonoBehaviour
             return;
         }
 
-        if (!ShouldShowDebugTools())
-        {
-            Debug.LogWarning("Edit Note clicked, but no note is selected. Place a note first or use an Android/Editor test build.");
-            return;
-        }
-
-        Debug.Log("Edit Note clicked with no selected note; creating a test note for interaction testing.");
+        Debug.Log("Edit Note clicked with no selected note; creating a center-screen note for editing.");
         PlaceNote placeNote = FindObjectOfType<PlaceNote>();
         if (placeNote != null)
         {
-            NoteView debugNote = placeNote.CreateDebugTestNote();
-            if (debugNote != null)
-                Open(debugNote);
+            NoteView note = placeNote.CreateCenterScreenNote();
+            if (note != null)
+                Open(note);
         }
     }
 
@@ -201,11 +195,8 @@ public class NoteEditPanel : MonoBehaviour
     private static void CreateLauncher(Transform parent, NoteEditPanel panel)
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        CreateButton(parent, "Edit Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.OpenSelected);
-
-        if (ShouldShowDebugTools())
-            CreateButton(parent, "Test Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.CreateDebugTestNote);
-
+        CreateButton(parent, "Create Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.CreateCenterScreenNote);
+        CreateButton(parent, "Edit Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.OpenSelected);
         CreateButton(parent, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
     }
 
@@ -220,26 +211,18 @@ public class NoteEditPanel : MonoBehaviour
         Debug.Log("All notes and local voice files have been cleared.");
     }
 
-    private void CreateDebugTestNote()
+    private void CreateCenterScreenNote()
     {
-        if (!ShouldShowDebugTools())
-            return;
-
         PlaceNote placeNote = FindObjectOfType<PlaceNote>();
         if (placeNote == null)
         {
-            Debug.LogWarning("No PlaceNote component found in the scene. Open MainScene before creating a debug test note.");
+            Debug.LogWarning("No PlaceNote component found in the scene. Open MainScene before creating a center-screen note.");
             return;
         }
 
-        NoteView debugNote = placeNote.CreateDebugTestNote();
-        if (debugNote != null)
-            Open(debugNote);
-    }
-
-    private static bool ShouldShowDebugTools()
-    {
-        return Application.isEditor || Debug.isDebugBuild || Application.platform == RuntimePlatform.Android;
+        NoteView note = placeNote.CreateCenterScreenNote();
+        if (note != null)
+            Open(note);
     }
 
     private static void EnsureEventSystem()

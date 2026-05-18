@@ -54,7 +54,11 @@ public class NoteManager : MonoBehaviour
 
     public void SelectNote(NoteView view)
     {
+        if (SelectedNote != null && SelectedNote != view)
+            SelectedNote.SetSelectedVisual(false);
+
         SelectedNote = view;
+        SelectedNote?.SetSelectedVisual(true);
         NoteSelected?.Invoke(view);
     }
 

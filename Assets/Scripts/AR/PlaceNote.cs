@@ -42,12 +42,6 @@ public class PlaceNote : MonoBehaviour
         }
 
 #if UNITY_EDITOR
-        if (Input.GetKeyDown(KeyCode.N))
-        {
-            CreateDebugTestNote();
-            return;
-        }
-
         if (Input.GetMouseButtonDown(0))
         {
             Vector2 mousePosition = Input.mousePosition;
@@ -77,35 +71,64 @@ public class PlaceNote : MonoBehaviour
         CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "Tap Edit to add details");
     }
 
-    public NoteView CreateDebugTestNote()
+    public NoteView CreateCenterScreenNote()
     {
         if (!Application.isPlaying)
         {
-            Debug.LogWarning("Debug test notes can only be created in Play Mode.");
+            Debug.LogWarning("Center-screen notes can only be created in Play Mode.");
             return null;
         }
 
         if (notePrefab == null)
         {
-            Debug.LogWarning("PlaceNote cannot create a debug test note because notePrefab is not assigned.");
+            Debug.LogWarning("PlaceNote cannot create a center-screen note because notePrefab is not assigned.");
             return null;
         }
+
+        Camera camera = Camera.main;
+        if (camera != null)
+        {
+            Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            if (TryOpenExistingNoteFromUi(center) || TryOpenExistingNote(center))
+            {
+                Debug.Log("Center screen is already occupied by a note; opened the existing note instead of creating another.");
+                return null;
+            }
+        }
+
+        NoteView noteView = CreateNoteInFrontOfCamera("CenterScreenNoteAnchor", "New Note", "Tap Edit to add details");
+        if (noteView != null)
+            Debug.Log("Created center-screen note without ground-plane detection.");
+
+        return noteView;
+    }
+
+    private NoteView CreateNoteInFrontOfCamera(string anchorName, string title, string content)
+    {
+        if (notePrefab == null)
+            return null;
 
         Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
         Vector3 forward = cameraTransform.forward.sqrMagnitude > 0.01f ? cameraTransform.forward : Vector3.forward;
         Vector3 position = cameraTransform.position + forward.normalized * 1.2f;
-        Quaternion rotation = Quaternion.LookRotation(-forward.normalized, Vector3.up);
+        Quaternion rotation = CalculateCameraReadableRotation();
 
-        Debug.Log("Created debug test note without Vuforia plane detection.");
-        return CreateNoteAt("DebugTestNoteAnchor", position, rotation, true, "Debug Test Note", "Created without ground-plane detection");
+        return CreateNoteAt(anchorName, position, rotation, true, title, content);
     }
 
-#if UNITY_EDITOR
-    public NoteView CreateEditorTestNote()
+    private Quaternion CalculateCameraReadableRotation()
     {
-        return CreateDebugTestNote();
+        if (Camera.main == null)
+            return Quaternion.identity;
+
+        Vector3 cameraForward = Camera.main.transform.forward;
+        cameraForward.y = 0f;
+
+        if (cameraForward.sqrMagnitude < 0.01f)
+            cameraForward = Camera.main.transform.up;
+
+        return Quaternion.LookRotation(cameraForward, Vector3.up);
     }
-#endif
 
     private NoteView CreateNoteAt(string anchorName, Vector3 position, Quaternion rotation, bool selectOnCreate, string title, string content)
     {
@@ -232,9 +255,15 @@ public class PlaceNote : MonoBehaviour
             if (noteView == null)
                 continue;
 
-            noteView.OpenEditor();
-            Debug.Log("Existing note UI tapped; opening editor instead of creating a new note.");
-            return true;
+            Button noteButton = result.gameObject.GetComponentInParent<Button>();
+            if (noteButton != null)
+            {
+                if (noteButton.IsActive() && noteButton.IsInteractable())
+                    noteButton.onClick.Invoke();
+
+                Debug.Log("Existing note button tapped; handled note UI button.");
+                return true;
+            }
         }
 
         return false;
