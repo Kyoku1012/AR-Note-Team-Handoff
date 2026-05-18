@@ -2,167 +2,106 @@ using UnityEngine;
 
 public class StylePanelController : MonoBehaviour
 {
-    // public NoteStyleManager selectedNote;
-    
-    // private NoteData currentData = new NoteData
-    // {
-    //     id = "Note001",
-    //     title = "Test Note",
-    //     content = "This is a test note.",
-    //     isVisible = true,
-
-    //     colorName = "yellow",
-    //     iconId = "",
-    //     priorityId = ""
-    // };
     public NoteStyleManager selectedNote;
-    private NoteData currentData;
 
-    public void SetSelectedNote(NoteStyleManager note)
+    private NoteView selectedView;
+
+    private void OnEnable()
     {
-        selectedNote = note;
-
-        currentData = new NoteData
-        {
-            id = "Note001",
-            title = "Test Note",
-            content = "This is a test note.",
-            isVisible = true,
-            colorName = "yellow",
-            iconId = "",
-            priorityId = ""
-        };
-
-        ApplyCurrentStyle();
+        if (NoteManager.Instance != null)
+            NoteManager.Instance.NoteSelected += SetSelectedNote;
     }
-    private void Awake()
+
+    private void OnDisable()
     {
-        if (selectedNote == null)
-        {
-            selectedNote = GetComponent<NoteStyleManager>() ?? GetComponentInChildren<NoteStyleManager>();
-            if (selectedNote == null)
-            {
-                Debug.LogWarning("StylePanelController: selectedNote is not assigned in Inspector and no NoteStyleManager was found on the same GameObject or children.");
-            }
-        }
+        if (NoteManager.Instance != null)
+            NoteManager.Instance.NoteSelected -= SetSelectedNote;
     }
 
     private void Start()
     {
-        ApplyCurrentStyle();
+        if (NoteManager.Instance != null && NoteManager.Instance.SelectedNote != null)
+            SetSelectedNote(NoteManager.Instance.SelectedNote);
     }
 
-    private void ApplyCurrentStyle()
+    public void SetSelectedNote(NoteStyleManager note)
     {
-        if (selectedNote == null)
+        selectedNote = note;
+        selectedView = note == null ? null : note.GetComponentInParent<NoteView>();
+    }
+
+    public void SetSelectedNote(NoteView noteView)
+    {
+        selectedView = noteView;
+        selectedNote = noteView == null ? null : noteView.GetComponentInChildren<NoteStyleManager>(true);
+    }
+
+    public void SetYellow() => SetColor("yellow");
+    public void SetPink() => SetColor("pink");
+    public void SetBlue() => SetColor("blue");
+    public void SetGreen() => SetColor("green");
+
+    public void SetStarIcon() => SetIcon("star");
+    public void SetFinishIcon() => SetIcon("finish");
+    public void SetInProcessIcon() => SetIcon("inprocess");
+    public void SetReminderIcon() => SetIcon("reminder");
+    public void SetWorkIcon() => SetIcon("work");
+    public void SetStudyIcon() => SetIcon("study");
+    public void SetShoppingIcon() => SetIcon("shopping");
+    public void HideIcon() => SetIcon("");
+
+    public void SetHighPriority() => SetPriority("high");
+    public void SetMediumPriority() => SetPriority("medium");
+    public void SetLowPriority() => SetPriority("low");
+    public void HidePriority() => SetPriority("");
+
+    private void SetColor(string colorName)
+    {
+        NoteData data = GetSelectedData();
+        if (data == null) return;
+
+        data.colorName = colorName;
+        data.colorLabel = colorName;
+        SaveSelected();
+    }
+
+    private void SetIcon(string iconId)
+    {
+        NoteData data = GetSelectedData();
+        if (data == null) return;
+
+        data.iconId = iconId;
+        SaveSelected();
+    }
+
+    private void SetPriority(string priorityId)
+    {
+        NoteData data = GetSelectedData();
+        if (data == null) return;
+
+        data.priorityId = priorityId;
+        SaveSelected();
+    }
+
+    private NoteData GetSelectedData()
+    {
+        if (selectedView == null && NoteManager.Instance != null)
+            selectedView = NoteManager.Instance.SelectedNote;
+
+        if (selectedView == null)
         {
-            Debug.LogWarning("StylePanelController: selectedNote is not assigned in Inspector.");
-            return;
+            Debug.LogWarning("StylePanelController: select or place a note before styling.");
+            return null;
         }
 
-        selectedNote.ApplyStyle(currentData);
+        return selectedView.Data;
     }
 
-    // Note Color Setters
-    public void SetYellow()
+    private void SaveSelected()
     {
-        Debug.Log("Yellow button clicked in StylePanelController.");
-        currentData.colorName = "yellow";
-        ApplyCurrentStyle();
-    }
-
-    public void SetPink()
-    {
-            Debug.Log("Pink button clicked in StylePanelController.");
-        currentData.colorName = "pink";
-        ApplyCurrentStyle();
-    }
-
-    public void SetBlue()
-    {
-        currentData.colorName = "blue";
-        ApplyCurrentStyle();
-    }
-    public void SetGreen()
-    {
-        currentData.colorName = "green";
-        ApplyCurrentStyle();
-    }
-
-
-    // Note Icon Setters
-    public void SetStarIcon()
-    {
-        Debug.Log("Star Icon button clicked in StylePanelController.");
-        currentData.iconId = "star";
-        ApplyCurrentStyle();
-    }
-
-    public void SetFinishIcon()
-    {
-        currentData.iconId = "finish";
-        ApplyCurrentStyle();
-    }
-
-    public void SetInProcessIcon()
-    {
-        currentData.iconId = "inprocess";
-        ApplyCurrentStyle();
-    }
-
-       public void SetReminderIcon()
-    {
-        currentData.iconId = "reminder";
-        ApplyCurrentStyle();
-    }
-
-       public void SetWorkIcon()
-    {
-        currentData.iconId = "work";
-        ApplyCurrentStyle();
-    }
-
-       public void SetStudyIcon()
-    {
-        currentData.iconId = "study";
-        ApplyCurrentStyle();
-    }
-
-       public void SetShoppingIcon()
-    {
-        currentData.iconId = "shopping";
-        ApplyCurrentStyle();
-    }
-
-    public void HideIcon()
-    {
-        currentData.iconId = "";
-        ApplyCurrentStyle();
-    }
-
-    // Note Priority Setters
-    public void SetHighPriority()
-    {
-        Debug.Log("High Priority button clicked in StylePanelController.");
-        currentData.priorityId = "high";
-        ApplyCurrentStyle();
-    }
-
-    public void SetMediumPriority()
-    {
-        currentData.priorityId = "medium";
-        ApplyCurrentStyle();
-    }
-
-    public void SetLowPriority()
-    {
-        currentData.priorityId = "low";
-        ApplyCurrentStyle();
-    }
-
-    public void HidePriority()
-    {
-        currentData.priorityId = "";
-        ApplyCurrentStyle();
+        if (selectedView != null)
+            selectedView.SaveAndRefresh();
+        else if (selectedNote != null)
+            selectedNote.ApplyStyle(GetSelectedData());
     }
 }

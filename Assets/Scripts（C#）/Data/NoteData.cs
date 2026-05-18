@@ -3,37 +3,57 @@ using UnityEngine;
 [System.Serializable]
 public class NoteData
 {
-    public bool isVisible;
-
-    // 唯一ID（用于增删改查）
     public string id;
-
-    // 基础文本信息
     public string title;
     public string content;
+    public string annotation;
 
-    // 任务状态（Member 2 用）
     public bool isCompleted;
+    public bool isVisible = true;
 
-    // 颜色标签（Member 3 用）
     public string colorLabel;
+    public string colorName;
+    public string iconId;
+    public string priorityId;
 
-    // 提醒功能（Member 4 用）
     public bool hasReminder;
-    public string reminderTime;
+    public string reminderTime; // yyyy-MM-dd HH:mm, local device time
 
-    // 语音便签（Member 5 用）
     public bool hasVoiceNote;
     public string voiceFilePath;
 
-    // AR 位置信息（核心）
     public Vector3 worldPosition;
+    public Vector3 worldRotation;
 
+    public void ApplyDefaults()
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            id = System.Guid.NewGuid().ToString();
 
-    // Member 3 
-    // Note Customization
-    public string colorName;   // e.g. "Yellow", "Pink", "Blue"
-    public string iconId;      // e.g. "Study", "Shopping", "Reminder"
-    public string priorityId;  // e.g. "High", "Medium", "Low"
+        if (string.IsNullOrWhiteSpace(title))
+            title = "New Note";
 
+        if (content == null)
+            content = "";
+
+        if (annotation == null)
+            annotation = "";
+
+        if (string.IsNullOrWhiteSpace(colorName))
+            colorName = string.IsNullOrWhiteSpace(colorLabel) ? "yellow" : colorLabel;
+
+        if (iconId == null)
+            iconId = "";
+
+        if (priorityId == null)
+            priorityId = "";
+
+        if (reminderTime == null)
+            reminderTime = "";
+
+        if (voiceFilePath == null)
+            voiceFilePath = "";
+
+        colorLabel = colorName;
+    }
 }

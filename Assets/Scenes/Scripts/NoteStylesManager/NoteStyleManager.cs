@@ -33,9 +33,6 @@ public class NoteStyleManager : MonoBehaviour
             return;
         }
 
-        // Visibility
-        gameObject.SetActive(data.isVisible);
-
         string color = Normalize(data.colorName);
         string icon = Normalize(data.iconId);
         string priority = Normalize(data.priorityId);

@@ -1,35 +1,191 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class NoteManager : MonoBehaviour
 {
-    public static NoteManager Instance;
+    public static NoteManager Instance { get; private set; }
 
-    public List<NoteData> allNotes =
-        new List<NoteData>();
+    public List<NoteData> allNotes = new List<NoteData>();
+    public DatabaseManager databaseManager;
+
+    public NoteView SelectedNote { get; private set; }
+    public event Action<NoteView> NoteSelected;
+
+    private readonly Dictionary<string, NoteView> activeViews = new Dictionary<string, NoteView>();
 
     private void Awake()
     {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
+        EnsureDatabaseManager();
+        LoadNotes();
+        EnsureRuntimeServices();
+    }
+
+    public void RegisterView(NoteView view)
+    {
+        if (view == null || view.Data == null || string.IsNullOrWhiteSpace(view.Data.id))
+            return;
+
+        activeViews[view.Data.id] = view;
+    }
+
+    public void UnregisterView(NoteView view)
+    {
+        if (view == null || view.Data == null || string.IsNullOrWhiteSpace(view.Data.id))
+            return;
+
+        if (activeViews.TryGetValue(view.Data.id, out NoteView current) && current == view)
+            activeViews.Remove(view.Data.id);
+    }
+
+    public void SelectNote(NoteView view)
+    {
+        SelectedNote = view;
+        NoteSelected?.Invoke(view);
+
+        if (view != null)
+            NoteEditPanel.EnsureExists().Open(view);
     }
 
     public void AddNote(NoteData note)
     {
+        if (note == null) return;
+
+        note.ApplyDefaults();
+        if (allNotes.Any(n => n.id == note.id))
+        {
+            UpdateNote(note);
+            return;
+        }
+
         allNotes.Add(note);
+        SaveNotes();
+        ReminderManager.Instance?.ScheduleOrCancel(note);
+    }
+
+    public NoteData GetNote(string noteID)
+    {
+        if (string.IsNullOrWhiteSpace(noteID)) return null;
+        return allNotes.FirstOrDefault(n => n.id == noteID);
+    }
+
+    public List<NoteData> GetAllNotes()
+    {
+        return allNotes;
+    }
+
+    public NoteView GetView(string noteID)
+    {
+        if (string.IsNullOrWhiteSpace(noteID)) return null;
+        activeViews.TryGetValue(noteID, out NoteView view);
+        return view;
+    }
+
+    public NoteView GetFirstView()
+    {
+        return activeViews.Values.FirstOrDefault(view => view != null);
+    }
+
+    public void UpdateNote(NoteData note)
+    {
+        if (note == null) return;
+
+        note.ApplyDefaults();
+        int index = allNotes.FindIndex(n => n.id == note.id);
+        if (index < 0)
+        {
+            AddNote(note);
+            return;
+        }
+
+        allNotes[index] = note;
+        if (activeViews.TryGetValue(note.id, out NoteView view))
+            view.RefreshFromData();
+
+        SaveNotes();
+        ReminderManager.Instance?.ScheduleOrCancel(note);
     }
 
     public void RemoveNote(string noteID)
     {
+        if (string.IsNullOrWhiteSpace(noteID)) return;
 
+        NoteData note = allNotes.FirstOrDefault(n => n.id == noteID);
+        if (note == null) return;
+
+        ReminderManager.Instance?.Cancel(note);
+
+        if (activeViews.TryGetValue(noteID, out NoteView view) && view != null)
+            Destroy(view.AnchorRoot != null ? view.AnchorRoot : view.gameObject);
+
+        activeViews.Remove(noteID);
+        allNotes.Remove(note);
+        SaveNotes();
+    }
+
+    public void ToggleCompleted(string noteID, bool isCompleted)
+    {
+        NoteData note = GetNote(noteID);
+        if (note == null) return;
+
+        note.isCompleted = isCompleted;
+        UpdateNote(note);
     }
 
     public void SaveNotes()
     {
+        EnsureDatabaseManager();
+        if (databaseManager == null)
+        {
+            Debug.LogWarning("DatabaseManager not assigned, cannot save notes.");
+            return;
+        }
 
+        databaseManager.SaveNotes(allNotes);
     }
 
     public void LoadNotes()
     {
+        EnsureDatabaseManager();
+        if (databaseManager == null)
+        {
+            Debug.LogWarning("DatabaseManager not assigned, cannot load notes.");
+            return;
+        }
 
+        List<NoteData> loaded = databaseManager.LoadNotes();
+        allNotes = loaded ?? new List<NoteData>();
+        foreach (NoteData note in allNotes)
+            note.ApplyDefaults();
+    }
+
+    private void EnsureDatabaseManager()
+    {
+        if (databaseManager != null) return;
+
+        databaseManager = FindObjectOfType<DatabaseManager>();
+        if (databaseManager != null) return;
+
+        GameObject managerObject = gameObject.name == "Managers" ? gameObject : new GameObject("Managers");
+        databaseManager = managerObject.AddComponent<DatabaseManager>();
+    }
+
+    private void EnsureRuntimeServices()
+    {
+        if (FindObjectOfType<ReminderManager>() == null)
+            gameObject.AddComponent<ReminderManager>();
+
+        if (FindObjectOfType<VoiceNoteManager>() == null)
+            gameObject.AddComponent<VoiceNoteManager>();
+
+        NoteEditPanel.EnsureExists();
     }
 }
