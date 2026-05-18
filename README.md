@@ -24,3 +24,4 @@
 - Read `TEAM_HANDOFF.md` before changing another member's module.
 - In Unity, run `AR Note > Run Readiness Check` before Android testing or handoff.
 - Keep `NoteData`, `NoteManager`, and `NoteView` as the shared integration points between all member features.
+- Runtime scripts are organized under `Assets/Scripts` by module: `AR`, `Data`, `Managers`, `Styling`, and `UI`.
