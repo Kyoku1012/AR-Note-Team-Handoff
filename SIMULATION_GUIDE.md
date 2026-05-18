@@ -46,14 +46,14 @@ For final marks/demo, always test on a real Android device.
 2. Press Play.
 3. Confirm there are no red console errors.
 4. Confirm the `Create Note`, `Edit Note`, and `Clear DB` buttons appear.
-5. Click `Create Note` to create a note in front of the camera.
+5. Click `Create Note` to create a fallback note from the current camera direction.
 6. Use `Edit Note` to change title, content, annotation, completion, visibility, reminder fields, and voice controls.
 7. Press Save and confirm the note updates.
 8. Stop Play Mode, press Play again, and confirm saved notes reload.
 9. Run `AR Note > Run Readiness Check`.
 10. Stop Play Mode.
 
-The `Create Note` button bypasses Vuforia plane detection and creates a note from the screen center. Use it for Editor testing of note data, save/load, editing, styling, and UI panel behavior. Real AR placement still needs Android device testing.
+The `Create Note` button bypasses Vuforia plane detection and creates a note from the current ARCamera direction. Use it for Editor testing of note data, save/load, editing, styling, and UI panel behavior. Real AR placement still needs Android device testing.
 
 If the project does not compile:
 
@@ -69,8 +69,8 @@ Vuforia Ground Plane can fail to produce plane hits in the Unity Editor. This is
 1. Open `MainScene`.
 2. Press Play.
 3. Click `Create Note`.
-4. A note is created about 1.2 meters in front of the active camera.
-5. The note front faces the active camera and is saved through the same `NoteManager` and `DatabaseManager` flow as real AR notes.
+4. A note is created using the current camera orientation: looking down places it in a desk/floor-like position; looking forward places it in a wall/front position.
+5. The note uses the same `NoteManager` and `DatabaseManager` flow as real AR notes.
 6. Edit the note with `Edit Note`.
 7. Restart Play Mode to confirm the note reloads from local JSON.
 

@@ -19,8 +19,8 @@ If the buttons do not appear, confirm that `Managers` exists in the scene and ha
 1. Click `Clear DB`.
 2. Click `Create Note`.
 3. Expected result:
-   - A note appears in front of the camera.
-   - The note front faces the active camera.
+   - A note appears from the current camera direction.
+   - Looking down creates a desk/floor-like note position; looking forward creates a wall/front note position.
    - The edit panel opens.
    - The selected note shows a cyan selection frame.
    - Console includes:
@@ -31,7 +31,7 @@ Created center-screen note without ground-plane detection.
 
 If no note is selected, clicking `Edit Note` creates and opens a center-screen note.
 
-`Create Note` creates from the center of the screen. If an existing note is already under the center point, the app opens that note instead of creating an overlapping note.
+`Create Note` creates from the center of the screen and chooses placement from the ARCamera direction. If an existing note is already under the center point, the app opens that note instead of creating an overlapping note.
 
 ## Read / Select
 
@@ -135,7 +135,7 @@ This log is normal when tapping UI. It only indicates a problem if no button act
 CRUD is considered working when:
 
 - `Create Note` creates a normal note from screen center, unless an existing note is under the center point.
-- Center-screen notes face the active camera when created.
+- Center-screen notes choose desk/floor-like placement when the camera is looking down and wall/front placement when it is looking forward.
 - `Edit Note` opens the selected or first note.
 - Selected notes show a visible selection frame, and non-selected notes do not.
 - `Save` persists title/content/annotation/toggles.

@@ -21,7 +21,7 @@ This project is set up so each member can test and amend their module without br
 - `Assets/Scripts/Managers/ReminderManager.cs` schedules or cancels Android local reminders.
 - `Assets/Scripts/Managers/VoiceNoteManager.cs` records, saves, plays, and deletes WAV voice memos.
 - `Assets/Scripts/UI/NoteEditPanel.cs` is a runtime fallback edit UI, so the app stays testable even if scene UI is incomplete.
-- The runtime UI exposes `Create Note`, `Edit Note`, and `Clear DB`; `Create Note` creates a center-screen note facing the active camera.
+- The runtime UI exposes `Create Note`, `Edit Note`, and `Clear DB`; `Create Note` uses ARCamera direction to choose desk/floor-like placement when looking down and wall/front placement when looking forward.
 
 ## Folder Map
 
@@ -51,7 +51,7 @@ Avoid duplicating save logic in feature scripts. Change the selected note's `Not
 3. App launches and requests camera permission.
 4. Vuforia detects a surface.
 5. Tapping a surface creates a note.
-6. `Create Note` creates a center-screen note when plane detection is unavailable.
+6. `Create Note` creates a camera-directed fallback note when plane detection is unavailable.
 7. Tapping UI does not create a note.
 8. Edit title/content/annotation and save.
 9. Apply color, icon, and priority from the style panel.

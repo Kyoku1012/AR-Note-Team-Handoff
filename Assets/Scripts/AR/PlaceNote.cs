@@ -11,6 +11,12 @@ public class PlaceNote : MonoBehaviour
     public GameObject notePrefab;
     public float offset = 0.01f;
     public float noteTapRayDistance = 20f;
+    [Header("Create Note Placement")]
+    public float wallCreateDistance = 1.2f;
+    public float horizontalCreateDistance = 1.0f;
+    public float horizontalCreateDrop = 0.45f;
+    [Range(-1f, 0f)]
+    public float lookDownThreshold = -0.45f;
 
     private PlaneFinderBehaviour planeFinder;
 
@@ -108,26 +114,58 @@ public class PlaceNote : MonoBehaviour
         if (notePrefab == null)
             return null;
 
-        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
-        Vector3 forward = cameraTransform.forward.sqrMagnitude > 0.01f ? cameraTransform.forward : Vector3.forward;
-        Vector3 position = cameraTransform.position + forward.normalized * 1.2f;
-        Quaternion rotation = CalculateCameraReadableRotation();
+        CalculateCreateNotePose(out Vector3 position, out Quaternion rotation, out string placementMode);
+        Debug.Log("Create Note placement mode: " + placementMode);
 
         return CreateNoteAt(anchorName, position, rotation, true, title, content);
     }
 
-    private Quaternion CalculateCameraReadableRotation()
+    private void CalculateCreateNotePose(out Vector3 position, out Quaternion rotation, out string placementMode)
     {
-        if (Camera.main == null)
-            return Quaternion.identity;
+        Transform cameraTransform = Camera.main != null ? Camera.main.transform : transform;
+        Vector3 cameraForward = cameraTransform.forward.sqrMagnitude > 0.01f
+            ? cameraTransform.forward.normalized
+            : Vector3.forward;
 
-        Vector3 cameraForward = Camera.main.transform.forward;
-        cameraForward.y = 0f;
+        bool lookingAtHorizontalSurface = cameraForward.y < lookDownThreshold;
+        Vector3 flatForward = FlattenToGround(cameraForward, cameraTransform);
 
-        if (cameraForward.sqrMagnitude < 0.01f)
-            cameraForward = Camera.main.transform.up;
+        if (lookingAtHorizontalSurface)
+        {
+            placementMode = "horizontal surface";
+            position = cameraTransform.position
+                + flatForward * horizontalCreateDistance
+                + Vector3.down * horizontalCreateDrop;
+            rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+            return;
+        }
 
-        return Quaternion.LookRotation(cameraForward, Vector3.up);
+        placementMode = "wall/front surface";
+        position = cameraTransform.position + cameraForward * wallCreateDistance;
+        rotation = Quaternion.LookRotation(flatForward, Vector3.up);
+    }
+
+    private Vector3 FlattenToGround(Vector3 direction, Transform fallbackTransform)
+    {
+        Vector3 flatForward = direction;
+        flatForward.y = 0f;
+
+        if (flatForward.sqrMagnitude < 0.01f)
+        {
+            flatForward = fallbackTransform.forward;
+            flatForward.y = 0f;
+        }
+
+        if (flatForward.sqrMagnitude < 0.01f)
+        {
+            flatForward = fallbackTransform.up;
+            flatForward.y = 0f;
+        }
+
+        if (flatForward.sqrMagnitude < 0.01f)
+            flatForward = Vector3.forward;
+
+        return flatForward.normalized;
     }
 
     private NoteView CreateNoteAt(string anchorName, Vector3 position, Quaternion rotation, bool selectOnCreate, string title, string content)
