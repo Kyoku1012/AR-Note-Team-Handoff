@@ -37,6 +37,10 @@
 # Visual Studio cache directory
 .vs/
 
+# VS Code / JetBrains project-local workspace settings
+.vscode/
+.idea/
+
 # Gradle cache directory
 .gradle/
 
@@ -66,6 +70,8 @@ ExportedObj/
 
 # Unity3D generated file on crash reports
 sysinfo.txt
+/[Cc]rash[Rr]eports/
+/[Ll]ocal[Cc]rash[Rr]eports/
 
 # Mono auto generated files
 mono_crash.*
@@ -111,3 +117,8 @@ InitTestScene*.unity*
 # Android signing
 *.keystore
 *.jks
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
