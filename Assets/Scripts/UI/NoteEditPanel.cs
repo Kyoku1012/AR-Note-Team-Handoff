@@ -11,10 +11,13 @@ public class NoteEditPanel : MonoBehaviour
     private InputField contentInput;
     private InputField annotationInput;
     private InputField reminderInput;
+    private InputField snoozeInput;
     private Toggle completedToggle;
     private Toggle visibleToggle;
     private Toggle reminderToggle;
+    private Dropdown alarmRepeatDropdown;
     private Text voiceStatusText;
+    private Text speechStatusText;
 
     public static NoteEditPanel EnsureExists()
     {
@@ -55,10 +58,13 @@ public class NoteEditPanel : MonoBehaviour
         annotationInput.text = data.annotation;
         completedToggle.isOn = data.isCompleted;
         visibleToggle.isOn = data.isVisible;
-        reminderToggle.isOn = data.hasReminder;
-        reminderInput.text = data.reminderTime;
+        reminderToggle.isOn = data.hasAlarm;
+        reminderInput.text = data.alarmTime;
+        snoozeInput.text = data.alarmSnoozeMinutes.ToString();
+        SetAlarmRepeatDropdown(data.alarmRepeatRule);
         VoiceNoteManager.Instance?.LoadFromNote(data);
         UpdateVoiceStatus();
+        UpdateSpeechStatus("");
 
         gameObject.SetActive(true);
     }
@@ -98,12 +104,17 @@ public class NoteEditPanel : MonoBehaviour
         data.annotation = annotationInput.text;
         data.isCompleted = completedToggle.isOn;
         data.isVisible = visibleToggle.isOn;
-        data.hasReminder = reminderToggle.isOn;
-        data.reminderTime = reminderInput.text;
+        data.hasAlarm = reminderToggle.isOn;
+        data.alarmTime = reminderInput.text;
+        data.alarmRepeatRule = GetSelectedAlarmRepeatRule();
+        data.alarmSnoozeMinutes = ParsePositiveInt(snoozeInput.text, 5);
+        data.hasReminder = data.hasAlarm;
+        data.reminderTime = data.alarmTime;
 
-        if (data.hasReminder && !ReminderManager.TryParseReminderTime(data.reminderTime, out DateTime _))
+        if (data.hasAlarm && !AlarmManager.TryParseAlarmTime(data.alarmTime, out DateTime _))
         {
-            Debug.LogWarning("Reminder time must be like 2026-05-25 09:30.");
+            Debug.LogWarning("Alarm time must be like 2026-05-25 09:30.");
+            data.hasAlarm = false;
             data.hasReminder = false;
             reminderToggle.isOn = false;
         }
@@ -120,6 +131,27 @@ public class NoteEditPanel : MonoBehaviour
         string noteId = currentNote.Data.id;
         Close();
         NoteManager.Instance?.RemoveNote(noteId);
+    }
+
+    private void SnoozeAlarm()
+    {
+        if (currentNote == null || currentNote.Data == null)
+            return;
+
+        int minutes = ParsePositiveInt(snoozeInput.text, currentNote.Data.alarmSnoozeMinutes);
+        AlarmManager.Instance?.Snooze(currentNote.Data, minutes);
+        currentNote.SaveAndRefresh();
+        Open(currentNote);
+    }
+
+    private void DismissAlarm()
+    {
+        if (currentNote == null || currentNote.Data == null)
+            return;
+
+        AlarmManager.Instance?.Dismiss(currentNote.Data);
+        currentNote.SaveAndRefresh();
+        Open(currentNote);
     }
 
     private void ToggleRecord()
@@ -143,10 +175,48 @@ public class NoteEditPanel : MonoBehaviour
         UpdateVoiceStatus();
     }
 
+    private void DictateTitle()
+    {
+        StartDictation("title", titleInput);
+    }
+
+    private void DictateContent()
+    {
+        StartDictation("content", contentInput);
+    }
+
+    private void DictateAnnotation()
+    {
+        StartDictation("annotation", annotationInput);
+    }
+
+    private void StartDictation(string targetField, InputField input)
+    {
+        if (input == null)
+            return;
+
+        UpdateSpeechStatus("Listening for " + targetField + "...");
+        SpeechToTextManager.Instance?.StartDictation(
+            text =>
+            {
+                input.text = string.IsNullOrWhiteSpace(input.text) ? text : input.text + " " + text;
+                if (currentNote != null && currentNote.Data != null)
+                {
+                    currentNote.Data.hasTranscript = true;
+                    currentNote.Data.transcriptText = text;
+                    currentNote.Data.transcriptSource = targetField;
+                    currentNote.Data.transcriptUpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                }
+                UpdateSpeechStatus("Speech added to " + targetField + ".");
+            },
+            error => UpdateSpeechStatus(error));
+    }
+
     private void UpdateVoiceStatus()
     {
         if (voiceStatusText == null || currentNote == null || currentNote.Data == null)
             return;
+
         if (VoiceNoteManager.Instance != null && VoiceNoteManager.Instance.IsRecording(currentNote))
         {
             voiceStatusText.text = "Recording voice memo...";
@@ -156,29 +226,45 @@ public class NoteEditPanel : MonoBehaviour
         voiceStatusText.text = currentNote.Data.hasVoiceNote ? "Voice memo attached" : "No voice memo";
     }
 
+    private void UpdateSpeechStatus(string message)
+    {
+        if (speechStatusText == null)
+            return;
+
+        speechStatusText.text = string.IsNullOrWhiteSpace(message) ? "Speech input ready" : message;
+    }
+
     private void BuildUi(Transform parent)
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
         CreateTopAnchoredLabel(parent, "Edit AR Note", font, 24, new Vector2(0, -24), new Vector2(340, 34));
         titleInput = CreateInput(parent, "Title", font, new Vector2(0, -72), new Vector2(340, 34));
+        CreateButton(parent, "Mic", font, new Vector2(186, -72), new Vector2(48, 34), DictateTitle);
         contentInput = CreateInput(parent, "Content", font, new Vector2(0, -116), new Vector2(340, 34));
+        CreateButton(parent, "Mic", font, new Vector2(186, -116), new Vector2(48, 34), DictateContent);
         annotationInput = CreateInput(parent, "Annotation", font, new Vector2(0, -160), new Vector2(340, 34));
+        CreateButton(parent, "Mic", font, new Vector2(186, -160), new Vector2(48, 34), DictateAnnotation);
+        speechStatusText = CreateTopAnchoredLabel(parent, "Speech input ready", font, 13, new Vector2(0, -196), new Vector2(340, 22));
 
-        completedToggle = CreateToggle(parent, "Completed", font, new Vector2(-105, -202));
-        visibleToggle = CreateToggle(parent, "Visible", font, new Vector2(95, -202));
-        reminderToggle = CreateToggle(parent, "Reminder", font, new Vector2(-105, -244));
-        reminderInput = CreateInput(parent, "yyyy-MM-dd HH:mm", font, new Vector2(70, -244), new Vector2(205, 32));
+        completedToggle = CreateToggle(parent, "Completed", font, new Vector2(-105, -230));
+        visibleToggle = CreateToggle(parent, "Visible", font, new Vector2(95, -230));
+        reminderToggle = CreateToggle(parent, "Alarm", font, new Vector2(-105, -272));
+        reminderInput = CreateInput(parent, "yyyy-MM-dd HH:mm", font, new Vector2(70, -272), new Vector2(205, 32));
+        alarmRepeatDropdown = CreateDropdown(parent, font, new Vector2(-95, -314), new Vector2(140, 32), "None", "Daily", "Weekly");
+        snoozeInput = CreateInput(parent, "Snooze min", font, new Vector2(92, -314), new Vector2(150, 32));
+        CreateButton(parent, "Snooze", font, new Vector2(-72, -356), new Vector2(100, 32), SnoozeAlarm);
+        CreateButton(parent, "Dismiss", font, new Vector2(72, -356), new Vector2(100, 32), DismissAlarm);
 
-        voiceStatusText = CreateTopAnchoredLabel(parent, "No voice memo", font, 15, new Vector2(0, -286), new Vector2(340, 24));
+        voiceStatusText = CreateTopAnchoredLabel(parent, "No voice memo", font, 15, new Vector2(0, -396), new Vector2(340, 24));
 
-        CreateButton(parent, "Record", font, new Vector2(-126, -326), new Vector2(94, 34), ToggleRecord);
-        CreateButton(parent, "Play", font, new Vector2(0, -326), new Vector2(94, 34), PlayVoice);
-        CreateButton(parent, "Remove", font, new Vector2(126, -326), new Vector2(94, 34), DeleteVoice);
+        CreateButton(parent, "Record", font, new Vector2(-126, -434), new Vector2(94, 34), ToggleRecord);
+        CreateButton(parent, "Play", font, new Vector2(0, -434), new Vector2(94, 34), PlayVoice);
+        CreateButton(parent, "Remove", font, new Vector2(126, -434), new Vector2(94, 34), DeleteVoice);
 
-        CreateButton(parent, "Save", font, new Vector2(-126, -374), new Vector2(94, 38), Save);
-        CreateButton(parent, "Delete", font, new Vector2(0, -374), new Vector2(94, 38), DeleteCurrent);
-        CreateButton(parent, "Close", font, new Vector2(126, -374), new Vector2(94, 38), Close);
+        CreateButton(parent, "Save", font, new Vector2(-126, -482), new Vector2(94, 38), Save);
+        CreateButton(parent, "Delete", font, new Vector2(0, -482), new Vector2(94, 38), DeleteCurrent);
+        CreateButton(parent, "Close", font, new Vector2(126, -482), new Vector2(94, 38), Close);
     }
 
     private static GameObject CreatePanel(Transform parent)
@@ -191,7 +277,7 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = new Vector2(0, -24);
-        rect.sizeDelta = new Vector2(390, 440);
+        rect.sizeDelta = new Vector2(430, 550);
 
         Image image = panel.AddComponent<Image>();
         image.color = new Color(0.08f, 0.08f, 0.08f, 0.88f);
@@ -368,6 +454,105 @@ public class NoteEditPanel : MonoBehaviour
         return toggle;
     }
 
+    private static Dropdown CreateDropdown(Transform parent, Font font, Vector2 position, Vector2 dimensions, params string[] options)
+    {
+        GameObject obj = new GameObject("AlarmRepeatDropdown");
+        obj.transform.SetParent(parent, false);
+
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+
+        Image image = obj.AddComponent<Image>();
+        image.color = Color.white;
+
+        Dropdown dropdown = obj.AddComponent<Dropdown>();
+        Text label = CreateCenteredChildLabel(obj.transform, "Label", font, 15, Color.black, TextAnchor.MiddleLeft, new Vector2(8, 0), new Vector2(-8, 0));
+        dropdown.captionText = label;
+        CreateDropdownTemplate(obj.transform, dropdown, font, dimensions);
+        dropdown.options.Clear();
+        foreach (string option in options)
+            dropdown.options.Add(new Dropdown.OptionData(option));
+
+        dropdown.value = 0;
+        dropdown.RefreshShownValue();
+        return dropdown;
+    }
+
+    private static void CreateDropdownTemplate(Transform parent, Dropdown dropdown, Font font, Vector2 dimensions)
+    {
+        GameObject templateObject = new GameObject("Template");
+        templateObject.transform.SetParent(parent, false);
+        RectTransform templateRect = templateObject.AddComponent<RectTransform>();
+        templateRect.anchorMin = new Vector2(0, 0);
+        templateRect.anchorMax = new Vector2(1, 0);
+        templateRect.pivot = new Vector2(0.5f, 1f);
+        templateRect.anchoredPosition = new Vector2(0, -2);
+        templateRect.sizeDelta = new Vector2(0, dimensions.y * 3f);
+        Image templateImage = templateObject.AddComponent<Image>();
+        templateImage.color = Color.white;
+        ScrollRect scrollRect = templateObject.AddComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+
+        GameObject viewportObject = new GameObject("Viewport");
+        viewportObject.transform.SetParent(templateObject.transform, false);
+        RectTransform viewportRect = viewportObject.AddComponent<RectTransform>();
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = Vector2.zero;
+        viewportRect.offsetMax = Vector2.zero;
+        Image viewportImage = viewportObject.AddComponent<Image>();
+        viewportImage.color = Color.white;
+        Mask mask = viewportObject.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
+
+        GameObject contentObject = new GameObject("Content");
+        contentObject.transform.SetParent(viewportObject.transform, false);
+        RectTransform contentRect = contentObject.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0, 1);
+        contentRect.anchorMax = new Vector2(1, 1);
+        contentRect.pivot = new Vector2(0.5f, 1);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0, dimensions.y * 3f);
+
+        GameObject itemObject = new GameObject("Item");
+        itemObject.transform.SetParent(contentObject.transform, false);
+        RectTransform itemRect = itemObject.AddComponent<RectTransform>();
+        itemRect.anchorMin = new Vector2(0, 1);
+        itemRect.anchorMax = new Vector2(1, 1);
+        itemRect.pivot = new Vector2(0.5f, 1);
+        itemRect.anchoredPosition = Vector2.zero;
+        itemRect.sizeDelta = new Vector2(0, dimensions.y);
+
+        Toggle itemToggle = itemObject.AddComponent<Toggle>();
+        Image itemBackground = itemObject.AddComponent<Image>();
+        itemBackground.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+        itemToggle.targetGraphic = itemBackground;
+
+        GameObject checkmarkObject = new GameObject("Item Checkmark");
+        checkmarkObject.transform.SetParent(itemObject.transform, false);
+        RectTransform checkRect = checkmarkObject.AddComponent<RectTransform>();
+        checkRect.anchorMin = new Vector2(0, 0.5f);
+        checkRect.anchorMax = new Vector2(0, 0.5f);
+        checkRect.anchoredPosition = new Vector2(10, 0);
+        checkRect.sizeDelta = new Vector2(12, 12);
+        Image checkImage = checkmarkObject.AddComponent<Image>();
+        checkImage.color = new Color(0.2f, 0.8f, 0.35f);
+        itemToggle.graphic = checkImage;
+
+        Text itemLabel = CreateCenteredChildLabel(itemObject.transform, "Item Label", font, 15, Color.black, TextAnchor.MiddleLeft, new Vector2(28, 0), new Vector2(-8, 0));
+
+        scrollRect.content = contentRect;
+        scrollRect.viewport = viewportRect;
+        dropdown.template = templateRect;
+        dropdown.itemText = itemLabel;
+        dropdown.itemImage = itemBackground;
+        templateObject.SetActive(false);
+    }
+
     private static Button CreateButton(Transform parent, string label, Font font, Vector2 position, Vector2 dimensions, UnityEngine.Events.UnityAction action)
     {
         GameObject obj = new GameObject(label + "Button");
@@ -390,6 +575,35 @@ public class NoteEditPanel : MonoBehaviour
 
         CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         return button;
+    }
+
+    private void SetAlarmRepeatDropdown(string repeatRule)
+    {
+        if (alarmRepeatDropdown == null)
+            return;
+
+        string normalized = AlarmManager.NormalizeRepeatRule(repeatRule);
+        alarmRepeatDropdown.value = normalized == AlarmManager.RepeatDaily ? 1 : normalized == AlarmManager.RepeatWeekly ? 2 : 0;
+        alarmRepeatDropdown.RefreshShownValue();
+    }
+
+    private string GetSelectedAlarmRepeatRule()
+    {
+        if (alarmRepeatDropdown == null)
+            return AlarmManager.RepeatNone;
+
+        if (alarmRepeatDropdown.value == 1)
+            return AlarmManager.RepeatDaily;
+
+        if (alarmRepeatDropdown.value == 2)
+            return AlarmManager.RepeatWeekly;
+
+        return AlarmManager.RepeatNone;
+    }
+
+    private int ParsePositiveInt(string value, int fallback)
+    {
+        return int.TryParse(value, out int parsed) && parsed > 0 ? parsed : Mathf.Max(1, fallback);
     }
 }
 
