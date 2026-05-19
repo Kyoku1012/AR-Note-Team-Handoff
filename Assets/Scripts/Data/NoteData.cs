@@ -98,9 +98,8 @@ public class NoteData
         if (reminderTime == null)
             reminderTime = "";
 
-        if (!hasAlarm && hasReminder)
+        if (hasReminder && string.IsNullOrWhiteSpace(alarmTime))
         {
-            hasAlarm = true;
             alarmTime = reminderTime;
         }
 
@@ -122,8 +121,11 @@ public class NoteData
         if (alarmLastFiredTime == null)
             alarmLastFiredTime = "";
 
-        hasReminder = hasAlarm;
-        reminderTime = alarmTime;
+        if (string.IsNullOrWhiteSpace(reminderTime) && !string.IsNullOrWhiteSpace(alarmTime))
+            reminderTime = alarmTime;
+
+        hasReminder = !string.IsNullOrWhiteSpace(reminderTime);
+        hasAlarm = hasReminder;
 
         if (voiceFilePath == null)
             voiceFilePath = "";

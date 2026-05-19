@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class NoteManager : MonoBehaviour
 {
@@ -27,6 +29,7 @@ public class NoteManager : MonoBehaviour
         EnsureDatabaseManager();
         LoadNotes();
         EnsureRuntimeServices();
+        ReminderManager.Instance?.RescheduleAll(allNotes);
     }
 
     public void RegisterView(NoteView view)
@@ -99,6 +102,15 @@ public class NoteManager : MonoBehaviour
     public NoteView GetFirstView()
     {
         return activeViews.Values.FirstOrDefault(view => view != null);
+    }
+
+    public void OpenNoteFromNotification(string noteID)
+    {
+        if (string.IsNullOrWhiteSpace(noteID))
+            return;
+
+        RuntimeNotificationOpenOverlay.Show();
+        StartCoroutine(OpenNoteFromNotificationWhenReady(noteID));
     }
 
     public void UpdateNote(NoteData note)
@@ -232,5 +244,114 @@ public class NoteManager : MonoBehaviour
             gameObject.AddComponent<SpeechToTextManager>();
 
         NoteEditPanel.EnsureExists();
+    }
+
+    private IEnumerator OpenNoteFromNotificationWhenReady(string noteID)
+    {
+        const int maxFramesToWait = 90;
+
+        for (int i = 0; i < maxFramesToWait; i++)
+        {
+            NoteView view = GetView(noteID);
+            if (view != null)
+            {
+                view.OpenEditor();
+                RuntimeNotificationOpenOverlay.Hide();
+                Debug.Log("Opened note from reminder notification: " + noteID);
+                yield break;
+            }
+
+            yield return null;
+        }
+
+        NoteData note = GetNote(noteID);
+        if (note != null)
+        {
+            SelectNote(null);
+            RuntimeNotificationOpenOverlay.Hide();
+            Debug.LogWarning("Reminder notification matched a saved note, but its view is not restored yet: " + noteID);
+            yield break;
+        }
+
+        RuntimeNotificationOpenOverlay.Hide();
+        Debug.LogWarning("Reminder notification referenced a note that no longer exists: " + noteID);
+    }
+}
+
+public class RuntimeNotificationOpenOverlay : MonoBehaviour
+{
+    private static RuntimeNotificationOpenOverlay instance;
+    private CanvasGroup canvasGroup;
+
+    public static void Show()
+    {
+        EnsureExists();
+        if (instance.canvasGroup == null)
+            return;
+
+        instance.canvasGroup.alpha = 1f;
+        instance.canvasGroup.gameObject.SetActive(true);
+    }
+
+    public static void Hide()
+    {
+        if (instance == null || instance.canvasGroup == null)
+            return;
+
+        instance.canvasGroup.gameObject.SetActive(false);
+    }
+
+    private static void EnsureExists()
+    {
+        if (instance != null)
+            return;
+
+        GameObject root = new GameObject("RuntimeNotificationOpenOverlay");
+        instance = root.AddComponent<RuntimeNotificationOpenOverlay>();
+        instance.BuildUi(root);
+        DontDestroyOnLoad(root);
+    }
+
+    private void BuildUi(GameObject root)
+    {
+        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        Canvas canvas = root.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 300;
+        root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        root.AddComponent<GraphicRaycaster>();
+
+        GameObject panel = new GameObject("OpenReminderPanel");
+        panel.transform.SetParent(root.transform, false);
+        RectTransform rect = panel.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        Image background = panel.AddComponent<Image>();
+        background.color = new Color(0.08f, 0.08f, 0.08f, 0.62f);
+
+        canvasGroup = panel.AddComponent<CanvasGroup>();
+
+        GameObject labelObject = new GameObject("OpeningReminderText");
+        labelObject.transform.SetParent(panel.transform, false);
+        RectTransform labelRect = labelObject.AddComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0.5f, 0.5f);
+        labelRect.anchoredPosition = Vector2.zero;
+        labelRect.sizeDelta = new Vector2(280, 40);
+
+        Text label = labelObject.AddComponent<Text>();
+        label.text = "Opening reminder...";
+        label.font = font;
+        label.fontSize = 18;
+        label.color = Color.white;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.raycastTarget = false;
+
+        panel.SetActive(false);
     }
 }
