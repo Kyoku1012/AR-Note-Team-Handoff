@@ -21,7 +21,17 @@ public class AlarmManager : MonoBehaviour
     public const string StatusDismissed = "dismissed";
     public const string StatusSnoozed = "snoozed";
 
-    private const string ChannelId = "ar_notes_alarms";
+    private const string ChannelId = "ar_notes_urgent_reminders_v3";
+    private const string LegacyChannelId = "ar_notes_alarms";
+    private const string PreviousUrgentChannelId = "ar_notes_urgent_reminders_v1";
+    private const string PreviousUrgentChannelIdV2 = "ar_notes_urgent_reminders_v2";
+
+#if UNITY_ANDROID
+    private PermissionRequest permissionRequest;
+    private bool exactSchedulingRequestOpened;
+    private bool batteryOptimizationRequestOpened;
+    private string lastHandledNotificationNoteId;
+#endif
 
     private void Awake()
     {
@@ -33,6 +43,24 @@ public class AlarmManager : MonoBehaviour
 
         Instance = this;
         RegisterChannel();
+        ProcessLastNotificationIntent();
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus)
+            return;
+
+        RegisterChannel();
+#if UNITY_ANDROID
+        ProcessLastNotificationIntent();
+
+        if (AndroidNotificationCenter.UserPermissionToPost == PermissionStatus.Allowed && AndroidNotificationCenter.UsingExactScheduling)
+        {
+            ReminderManager.Instance?.RescheduleAll(NoteManager.Instance?.GetAllNotes());
+            NoteManager.Instance?.SaveNotes();
+        }
+#endif
     }
 
     public static bool TryParseAlarmTime(string value, out DateTime dateTime)
@@ -59,10 +87,28 @@ public class AlarmManager : MonoBehaviour
         if (note == null || string.IsNullOrWhiteSpace(note.id)) return;
 
         note.ApplyDefaults();
-        if (!note.hasAlarm || string.IsNullOrWhiteSpace(note.alarmTime) || !TryParseAlarmTime(note.alarmTime, out DateTime fireTime))
+        if (!note.hasReminder && !note.hasAlarm)
         {
             Cancel(note);
             MarkAlarmDisabled(note);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(note.alarmTime))
+            note.alarmTime = note.reminderTime;
+
+        note.hasAlarm = true;
+        note.hasReminder = true;
+
+        if (string.IsNullOrWhiteSpace(note.alarmTime) || !TryParseAlarmTime(note.alarmTime, out DateTime fireTime))
+        {
+            Cancel(note);
+            note.hasAlarm = false;
+            note.hasReminder = false;
+            note.alarmTime = "";
+            note.reminderTime = "";
+            note.alarmStatus = StatusNone;
+            SyncReminderFields(note);
             return;
         }
 
@@ -72,14 +118,13 @@ public class AlarmManager : MonoBehaviour
             Cancel(note);
             note.alarmStatus = StatusFired;
             note.alarmLastFiredTime = FormatAlarmTime(DateTime.Now);
-            SyncLegacyReminderFields(note);
+            SyncReminderFields(note);
             return;
         }
 
         note.alarmTime = FormatAlarmTime(fireTime);
-        note.alarmStatus = StatusScheduled;
-        SyncLegacyReminderFields(note);
-        Schedule(note, fireTime);
+        note.alarmStatus = Schedule(note, fireTime) ? StatusScheduled : StatusNone;
+        SyncReminderFields(note);
     }
 
     public void Cancel(NoteData note)
@@ -101,7 +146,7 @@ public class AlarmManager : MonoBehaviour
         note.hasAlarm = false;
         note.alarmStatus = StatusDismissed;
         note.alarmSnoozeUntil = "";
-        SyncLegacyReminderFields(note);
+        SyncReminderFields(note);
     }
 
     public void Snooze(NoteData note, int minutes)
@@ -116,8 +161,8 @@ public class AlarmManager : MonoBehaviour
         note.alarmSnoozeUntil = note.alarmTime;
         note.alarmSnoozeMinutes = snoozeMinutes;
         note.alarmStatus = StatusSnoozed;
-        SyncLegacyReminderFields(note);
-        Schedule(note, fireTime);
+        SyncReminderFields(note);
+        note.alarmStatus = Schedule(note, fireTime) ? StatusSnoozed : StatusNone;
     }
 
     public static string NormalizeRepeatRule(string repeatRule)
@@ -148,55 +193,171 @@ public class AlarmManager : MonoBehaviour
         return fireTime;
     }
 
-    private void Schedule(NoteData note, DateTime fireTime)
+    private bool Schedule(NoteData note, DateTime fireTime)
     {
 #if UNITY_ANDROID
+        if (!EnsurePostPermissionReady())
+        {
+            Debug.LogWarning("Notification permission is not available; alarm was saved but not scheduled.");
+            return false;
+        }
+
+        if (!EnsureExactSchedulingReady())
+        {
+            Debug.LogWarning("Exact alarm permission is required for on-time reminders. Grant it and return to the app; reminders will be rescheduled automatically.");
+            return false;
+        }
+
+        RequestBatteryOptimizationExemptionIfNeeded();
         Cancel(note);
 
+        string body = GetNotificationBody(note);
         AndroidNotification notification = new AndroidNotification
         {
-            Title = string.IsNullOrWhiteSpace(note.title) ? "AR Note alarm" : note.title,
-            Text = string.IsNullOrWhiteSpace(note.content) ? "You have a saved AR note alarm." : note.content,
+            Title = GetNotificationTitle(note),
+            Text = body,
             FireTime = fireTime,
             SmallIcon = "default",
             LargeIcon = "default",
-            IntentData = note.id
+            IntentData = note.id,
+            Style = NotificationStyle.BigTextStyle,
+            ShouldAutoCancel = true,
+            ShowTimestamp = true,
+            ShowInForeground = true,
+            Group = "ar_notes_reminders",
+            Color = new Color(1f, 0.82f, 0.12f, 1f)
         };
 
         AndroidNotificationCenter.SendNotificationWithExplicitID(notification, ChannelId, GetNotificationId(note.id));
+        return true;
 #else
         Debug.Log($"Alarm scheduled for {note.title} at {fireTime}.");
+        return true;
 #endif
     }
 
     private void RegisterChannel()
     {
 #if UNITY_ANDROID
+        AndroidNotificationCenter.DeleteNotificationChannel(LegacyChannelId);
+        AndroidNotificationCenter.DeleteNotificationChannel(PreviousUrgentChannelId);
+        AndroidNotificationCenter.DeleteNotificationChannel(PreviousUrgentChannelIdV2);
+
         AndroidNotificationChannel channel = new AndroidNotificationChannel
         {
             Id = ChannelId,
-            Name = "AR Note Alarms",
+            Name = "Urgent Reminders",
             Importance = Importance.High,
-            Description = "Alarms for AR sticky notes and tasks"
+            Description = "Urgent reminders for AR sticky notes and tasks",
+            LockScreenVisibility = LockScreenVisibility.Public,
+            EnableVibration = true,
+            EnableLights = true,
+            CanShowBadge = true
         };
 
         AndroidNotificationCenter.RegisterNotificationChannel(channel);
 #endif
     }
 
+#if UNITY_ANDROID
+    private void ProcessLastNotificationIntent()
+    {
+        AndroidNotificationIntentData data = AndroidNotificationCenter.GetLastNotificationIntent();
+        if (data == null)
+            return;
+
+        string noteId = data.Notification.IntentData;
+        if (string.IsNullOrWhiteSpace(noteId) || noteId == lastHandledNotificationNoteId)
+            return;
+
+        lastHandledNotificationNoteId = noteId;
+        NoteManager.Instance?.OpenNoteFromNotification(noteId);
+    }
+#endif
+
     private void MarkAlarmDisabled(NoteData note)
     {
         note.hasAlarm = false;
+        note.hasReminder = false;
+        note.alarmTime = "";
+        note.reminderTime = "";
         note.alarmStatus = StatusNone;
         note.alarmSnoozeUntil = "";
-        SyncLegacyReminderFields(note);
+        SyncReminderFields(note);
     }
 
-    private void SyncLegacyReminderFields(NoteData note)
+    private void SyncReminderFields(NoteData note)
     {
-        note.hasReminder = note.hasAlarm;
-        note.reminderTime = note.alarmTime ?? "";
+        if (!string.IsNullOrWhiteSpace(note.alarmTime))
+            note.reminderTime = note.alarmTime;
+
+        if (note.reminderTime == null)
+            note.reminderTime = "";
+
+        note.hasReminder = !string.IsNullOrWhiteSpace(note.reminderTime);
     }
+
+    private string GetNotificationBody(NoteData note)
+    {
+        if (note == null)
+            return "You have a saved AR note reminder.";
+
+        if (!string.IsNullOrWhiteSpace(note.content))
+            return note.content;
+
+        if (!string.IsNullOrWhiteSpace(note.title))
+            return note.title;
+
+        return "You have a saved AR note reminder.";
+    }
+
+    private string GetNotificationTitle(NoteData note)
+    {
+        if (note == null || string.IsNullOrWhiteSpace(note.title) || note.title == "New Note")
+            return "Reminder";
+
+        return "Reminder: " + note.title;
+    }
+
+#if UNITY_ANDROID
+    private bool EnsurePostPermissionReady()
+    {
+        PermissionStatus status = AndroidNotificationCenter.UserPermissionToPost;
+        if (status == PermissionStatus.Allowed)
+            return true;
+
+        if (status == PermissionStatus.NotRequested || status == PermissionStatus.Denied || status == PermissionStatus.DeniedDontAskAgain)
+        {
+            permissionRequest = new PermissionRequest();
+            return permissionRequest.Status == PermissionStatus.Allowed;
+        }
+
+        return false;
+    }
+
+    private bool EnsureExactSchedulingReady()
+    {
+        if (AndroidNotificationCenter.UsingExactScheduling)
+            return true;
+
+        if (!exactSchedulingRequestOpened)
+        {
+            exactSchedulingRequestOpened = true;
+            AndroidNotificationCenter.RequestExactScheduling();
+        }
+
+        return AndroidNotificationCenter.UsingExactScheduling;
+    }
+
+    private void RequestBatteryOptimizationExemptionIfNeeded()
+    {
+        if (batteryOptimizationRequestOpened || AndroidNotificationCenter.IgnoringBatteryOptimizations)
+            return;
+
+        batteryOptimizationRequestOpened = true;
+        AndroidNotificationCenter.RequestIgnoreBatteryOptimizations();
+    }
+#endif
 
     private int GetNotificationId(string noteId)
     {

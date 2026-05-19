@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Events;
@@ -15,13 +16,13 @@ public class NoteEditPanel : MonoBehaviour
     private readonly Dictionary<string, Text> iconFallbackLabels = new Dictionary<string, Text>();
     private readonly Dictionary<string, Image> priorityButtons = new Dictionary<string, Image>();
     private readonly Dictionary<string, Text> colorLabels = new Dictionary<string, Text>();
+    private readonly Dictionary<string, Text[]> pickerOptionLabels = new Dictionary<string, Text[]>();
 
     private NoteView currentNote;
     private Image panelBackground;
     private InputField noteInput;
     private InputField titleInput;
-    private InputField reminderDateInput;
-    private InputField reminderTimeInput;
+    private Text reminderSummaryText;
     private Toggle reminderToggle;
     private Text speechStatusText;
     private GameObject launcherRoot;
@@ -29,10 +30,13 @@ public class NoteEditPanel : MonoBehaviour
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
     private string selectedPriorityId = "";
+    private bool hasSelectedReminderTime;
+    private DateTime selectedReminderTime;
 
     private static readonly string[] ColorNames = { "yellow", "pink", "blue", "green" };
     private static readonly string[] IconIds = { "star", "finish", "inprocess", "reminder", "work", "study", "shopping" };
     private static readonly string[] PriorityIds = { "low", "medium", "high" };
+    private static readonly string[] MonthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
     public static NoteEditPanel EnsureExists()
     {
@@ -76,8 +80,8 @@ public class NoteEditPanel : MonoBehaviour
         selectedColorName = NormalizeChoice(data.colorName, "yellow", ColorNames);
         selectedIconId = NormalizeChoice(data.iconId, "", IconIds);
         selectedPriorityId = NormalizeChoice(data.priorityId, "", PriorityIds);
-        reminderToggle.isOn = data.hasAlarm;
-        SetReminderInputs(data.alarmTime);
+        reminderToggle.isOn = data.hasReminder || string.IsNullOrWhiteSpace(data.reminderTime);
+        SetReminderTime(string.IsNullOrWhiteSpace(data.reminderTime) ? data.alarmTime : data.reminderTime);
         UpdateSelectionVisuals();
         UpdateIconSprites();
         UpdateSpeechStatus("");
@@ -118,26 +122,39 @@ public class NoteEditPanel : MonoBehaviour
 
         NoteData data = currentNote.Data;
         string noteText = GetInputValue(noteInput);
+        string titleText = GetInputValue(titleInput);
         data.content = noteText;
-        data.title = string.IsNullOrWhiteSpace(GetInputValue(titleInput)) ? GenerateTitleFromContent(noteText) : GetInputValue(titleInput);
+        data.title = string.IsNullOrWhiteSpace(titleText) ? "New Note" : titleText;
         data.annotation = "";
         data.colorName = selectedColorName;
         data.colorLabel = selectedColorName;
         data.iconId = selectedIconId;
         data.priorityId = selectedPriorityId;
-        data.hasAlarm = reminderToggle.isOn;
-        data.alarmTime = BuildAlarmTime();
-        data.alarmRepeatRule = AlarmManager.RepeatNone;
-        data.hasReminder = data.hasAlarm;
-        data.reminderTime = data.alarmTime;
-
-        if (data.hasAlarm && !AlarmManager.TryParseAlarmTime(data.alarmTime, out DateTime _))
+        if (!reminderToggle.isOn || !hasSelectedReminderTime)
         {
-            Debug.LogWarning("Alarm time must be like 2026-05-25 09:30.");
-            data.hasAlarm = false;
             data.hasReminder = false;
-            reminderToggle.isOn = false;
+            data.reminderTime = "";
+            data.hasAlarm = false;
+            data.alarmTime = "";
+            data.alarmStatus = AlarmManager.StatusNone;
+            data.alarmRepeatRule = AlarmManager.RepeatNone;
+            currentNote.SaveAndRefresh();
+            Close();
+            return;
         }
+
+        if (selectedReminderTime <= DateTime.Now)
+        {
+            selectedReminderTime = DateTime.Now.AddMinutes(1);
+            UpdateReminderPicker();
+            UpdateReminderSummary();
+        }
+
+        data.hasReminder = true;
+        data.reminderTime = AlarmManager.FormatAlarmTime(selectedReminderTime);
+        data.hasAlarm = true;
+        data.alarmTime = data.reminderTime;
+        data.alarmRepeatRule = AlarmManager.RepeatNone;
 
         currentNote.SaveAndRefresh();
         Close();
@@ -280,18 +297,19 @@ public class NoteEditPanel : MonoBehaviour
         BuildPriorityRow(parent, font, -366);
 
         CreateRowLabel(parent, "Reminder", font, -426);
-        reminderDateInput = CreateInput(parent, "", font, new Vector2(18, -426), new Vector2(136, 34), false, 10);
-        reminderTimeInput = CreateInput(parent, "", font, new Vector2(154, -426), new Vector2(88, 34), false, 5);
-        CreateTopAnchoredLabel(parent, "yyyy-MM-dd", font, 11, new Vector2(18, -453), new Vector2(136, 18), new Color(0.25f, 0.25f, 0.22f, 1f));
-        CreateTopAnchoredLabel(parent, "HH:mm", font, 11, new Vector2(154, -453), new Vector2(88, 18), new Color(0.25f, 0.25f, 0.22f, 1f));
-        reminderToggle = CreateToggle(parent, "Enable Reminder", font, new Vector2(72, -492));
+        reminderSummaryText = CreateTopAnchoredLabel(parent, "No time set", font, 16, new Vector2(64, -426), new Vector2(238, 34), Color.black);
+        BuildDateTimePicker(parent, font, -498);
+        CreateButton(parent, "Now", font, new Vector2(-34, -578), new Vector2(70, 30), SetReminderNow, new Color(1f, 0.99f, 0.88f, 1f), Color.black, 13);
+        CreateButton(parent, "Clear", font, new Vector2(50, -578), new Vector2(70, 30), ClearReminderTime, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.7f, 0.1f, 0.1f, 1f), 13);
+        reminderToggle = CreateToggle(parent, "Reminder", font, new Vector2(72, -616));
+        reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
 
-        CreateRowLabel(parent, "Speech", font, -554);
-        CreateButton(parent, "Mic", font, new Vector2(-12, -554), new Vector2(86, 36), DictateNote, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
-        speechStatusText = CreateTopAnchoredLabel(parent, "Speech input ready", font, 13, new Vector2(120, -554), new Vector2(166, 30), Color.black);
+        CreateRowLabel(parent, "Speech", font, -666);
+        CreateButton(parent, "Mic", font, new Vector2(-12, -666), new Vector2(86, 36), DictateNote, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
+        speechStatusText = CreateTopAnchoredLabel(parent, "Speech input ready", font, 13, new Vector2(120, -666), new Vector2(166, 30), Color.black);
 
-        CreateButton(parent, "Delete", font, new Vector2(-120, -616), new Vector2(96, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 16);
-        CreateButton(parent, "Save Note", font, new Vector2(100, -616), new Vector2(140, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 17);
+        CreateButton(parent, "Delete", font, new Vector2(-120, -724), new Vector2(96, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 16);
+        CreateButton(parent, "Save Note", font, new Vector2(100, -724), new Vector2(140, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 17);
     }
 
     private void BuildColorRow(Transform parent, Font font, float y)
@@ -345,6 +363,61 @@ public class NoteEditPanel : MonoBehaviour
         }
     }
 
+    private void BuildDateTimePicker(Transform parent, Font font, float y)
+    {
+        pickerOptionLabels.Clear();
+
+        CreateBlock(parent, "PickerSelectionBand", new Vector2(50, y), new Vector2(310, 32), new Color(1f, 1f, 1f, 0.35f));
+
+        CreatePickerColumn(parent, font, "year", new Vector2(-78, y), new Vector2(56, 90), () => ShiftYear(1), () => ShiftYear(-1));
+        CreatePickerColumn(parent, font, "month", new Vector2(-26, y), new Vector2(52, 90), () => ShiftMonth(1), () => ShiftMonth(-1));
+        CreatePickerColumn(parent, font, "day", new Vector2(24, y), new Vector2(40, 90), () => ShiftDay(1), () => ShiftDay(-1));
+        CreatePickerColumn(parent, font, "hour", new Vector2(70, y), new Vector2(40, 90), () => ShiftHour(1), () => ShiftHour(-1));
+        CreatePickerColumn(parent, font, "minute", new Vector2(116, y), new Vector2(40, 90), () => ShiftMinute(1), () => ShiftMinute(-1));
+        CreatePickerColumn(parent, font, "period", new Vector2(166, y), new Vector2(48, 90), TogglePeriod, TogglePeriod);
+    }
+
+    private void CreatePickerColumn(Transform parent, Font font, string key, Vector2 position, Vector2 dimensions, UnityAction upAction, UnityAction downAction)
+    {
+        GameObject column = new GameObject(key + "PickerColumn");
+        column.transform.SetParent(parent, false);
+
+        RectTransform rect = column.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+
+        Image background = column.AddComponent<Image>();
+        background.color = new Color(1f, 1f, 1f, 0.16f);
+        PickerColumnDragHandler dragHandler = column.AddComponent<PickerColumnDragHandler>();
+        dragHandler.Configure(upAction, downAction);
+
+        CreateButton(column.transform, "^", font, new Vector2(0, -12), new Vector2(dimensions.x - 4, 24), upAction, new Color(1f, 1f, 1f, 0.08f), new Color(0.25f, 0.25f, 0.22f, 1f), 14);
+        Text previous = CreateCenteredChildLabel(column.transform, "", font, 12, new Color(0.2f, 0.2f, 0.18f, 0.45f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+        previous.rectTransform.anchorMin = new Vector2(0, 0.58f);
+        previous.rectTransform.anchorMax = new Vector2(1, 0.78f);
+        previous.rectTransform.offsetMin = Vector2.zero;
+        previous.rectTransform.offsetMax = Vector2.zero;
+
+        Text current = CreateCenteredChildLabel(column.transform, "", font, 17, Color.black, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+        current.fontStyle = FontStyle.Bold;
+        current.rectTransform.anchorMin = new Vector2(0, 0.37f);
+        current.rectTransform.anchorMax = new Vector2(1, 0.63f);
+        current.rectTransform.offsetMin = Vector2.zero;
+        current.rectTransform.offsetMax = Vector2.zero;
+
+        Text next = CreateCenteredChildLabel(column.transform, "", font, 12, new Color(0.2f, 0.2f, 0.18f, 0.45f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+        next.rectTransform.anchorMin = new Vector2(0, 0.18f);
+        next.rectTransform.anchorMax = new Vector2(1, 0.38f);
+        next.rectTransform.offsetMin = Vector2.zero;
+        next.rectTransform.offsetMax = Vector2.zero;
+        CreateButton(column.transform, "v", font, new Vector2(0, -80), new Vector2(dimensions.x - 4, 24), downAction, new Color(1f, 1f, 1f, 0.08f), new Color(0.25f, 0.25f, 0.22f, 1f), 14);
+
+        pickerOptionLabels[key] = new[] { previous, current, next };
+    }
+
     private static GameObject CreatePanel(Transform parent)
     {
         GameObject panel = new GameObject("NoteEditPanel");
@@ -355,7 +428,7 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = new Vector2(0.5f, 1f);
         rect.pivot = new Vector2(0.5f, 1f);
         rect.anchoredPosition = new Vector2(0, -20);
-        rect.sizeDelta = new Vector2(430, 685);
+        rect.sizeDelta = new Vector2(430, 785);
 
         Image image = panel.AddComponent<Image>();
         image.color = GetPanelColor("yellow");
@@ -635,26 +708,221 @@ public class NoteEditPanel : MonoBehaviour
         return button;
     }
 
-    private void SetReminderInputs(string alarmTime)
+    private void SetReminderTime(string alarmTime)
     {
-        reminderDateInput.text = "";
-        reminderTimeInput.text = "";
-
-        if (string.IsNullOrWhiteSpace(alarmTime))
-            return;
-
-        if (AlarmManager.TryParseAlarmTime(alarmTime, out DateTime dateTime))
+        if (string.IsNullOrWhiteSpace(alarmTime) || !AlarmManager.TryParseAlarmTime(alarmTime, out DateTime dateTime))
         {
-            reminderDateInput.text = dateTime.ToString("yyyy-MM-dd");
-            reminderTimeInput.text = dateTime.ToString("HH:mm");
+            selectedReminderTime = DateTime.Now;
+            hasSelectedReminderTime = true;
+            UpdateReminderPicker();
+            UpdateReminderSummary();
+            return;
         }
+
+        selectedReminderTime = dateTime;
+        hasSelectedReminderTime = true;
+        UpdateReminderPicker();
+        UpdateReminderSummary();
     }
 
-    private string BuildAlarmTime()
+    private void SetReminderNow()
     {
-        string date = GetInputValue(reminderDateInput);
-        string time = GetInputValue(reminderTimeInput);
-        return string.IsNullOrWhiteSpace(date) && string.IsNullOrWhiteSpace(time) ? "" : date + " " + time;
+        selectedReminderTime = DateTime.Now;
+        hasSelectedReminderTime = true;
+        UpdateReminderPicker();
+        UpdateReminderSummary();
+    }
+
+    private void ShiftYear(int delta)
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddYears(delta);
+        ClampDayToMonth();
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void ShiftMonth(int delta)
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddMonths(delta);
+        ClampDayToMonth();
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void ShiftDay(int delta)
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddDays(delta);
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void ShiftHour(int delta)
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddHours(delta);
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void ShiftMinute(int delta)
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddMinutes(delta);
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void TogglePeriod()
+    {
+        EnsureReminderTimeSeed();
+        selectedReminderTime = selectedReminderTime.AddHours(12);
+        UpdateReminderPickerAndSummary();
+    }
+
+    private void ClearReminderTime()
+    {
+        hasSelectedReminderTime = false;
+        reminderToggle.isOn = false;
+        UpdateReminderSummary();
+    }
+
+    private void EnsureReminderTimeSeed()
+    {
+        if (hasSelectedReminderTime)
+            return;
+
+        selectedReminderTime = DateTime.Now;
+        hasSelectedReminderTime = true;
+    }
+
+    private void UpdateReminderPickerAndSummary()
+    {
+        UpdateReminderPicker();
+        UpdateReminderSummary();
+    }
+
+    private void UpdateReminderSummary()
+    {
+        if (reminderSummaryText == null)
+            return;
+
+        if (!hasSelectedReminderTime)
+        {
+            reminderSummaryText.text = reminderToggle != null && reminderToggle.isOn ? "Pick a time first" : "No time set";
+            reminderSummaryText.color = reminderToggle != null && reminderToggle.isOn ? new Color(0.72f, 0.12f, 0.1f, 1f) : Color.black;
+            return;
+        }
+
+        string dayLabel;
+        DateTime today = DateTime.Today;
+        if (selectedReminderTime.Date == today)
+            dayLabel = "Today";
+        else if (selectedReminderTime.Date == today.AddDays(1))
+            dayLabel = "Tomorrow";
+        else
+            dayLabel = selectedReminderTime.ToString("MMM d", CultureInfo.InvariantCulture);
+
+        reminderSummaryText.text = dayLabel + ", " + selectedReminderTime.ToString("h:mm tt", CultureInfo.InvariantCulture);
+        reminderSummaryText.color = selectedReminderTime <= DateTime.Now && reminderToggle != null && reminderToggle.isOn
+            ? new Color(0.72f, 0.12f, 0.1f, 1f)
+            : Color.black;
+    }
+
+    private void UpdateReminderPicker()
+    {
+        if (!hasSelectedReminderTime)
+        {
+            SetPickerColumn("month", "", "", "");
+            SetPickerColumn("year", "", "", "");
+            SetPickerColumn("day", "", "", "");
+            SetPickerColumn("hour", "", "", "");
+            SetPickerColumn("minute", "", "", "");
+            SetPickerColumn("period", "", "", "");
+            return;
+        }
+
+        SetPickerColumn("year",
+            (selectedReminderTime.Year - 1).ToString(),
+            selectedReminderTime.Year.ToString(),
+            (selectedReminderTime.Year + 1).ToString());
+
+        SetPickerColumn("month",
+            MonthNames[Wrap(selectedReminderTime.Month - 2, 12)],
+            MonthNames[selectedReminderTime.Month - 1],
+            MonthNames[Wrap(selectedReminderTime.Month, 12)]);
+
+        int daysInMonth = DateTime.DaysInMonth(selectedReminderTime.Year, selectedReminderTime.Month);
+        SetPickerColumn("day",
+            WrapDay(selectedReminderTime.Day - 1, daysInMonth).ToString("00"),
+            selectedReminderTime.Day.ToString("00"),
+            WrapDay(selectedReminderTime.Day + 1, daysInMonth).ToString("00"));
+
+        int hour12 = selectedReminderTime.Hour % 12;
+        if (hour12 == 0)
+            hour12 = 12;
+        SetPickerColumn("hour",
+            WrapHour12(hour12 - 1).ToString("00"),
+            hour12.ToString("00"),
+            WrapHour12(hour12 + 1).ToString("00"));
+
+        SetPickerColumn("minute",
+            Wrap(selectedReminderTime.Minute - 1, 60).ToString("00"),
+            selectedReminderTime.Minute.ToString("00"),
+            Wrap(selectedReminderTime.Minute + 1, 60).ToString("00"));
+
+        string period = selectedReminderTime.Hour >= 12 ? "PM" : "AM";
+        string otherPeriod = period == "AM" ? "PM" : "AM";
+        SetPickerColumn("period", otherPeriod, period, otherPeriod);
+    }
+
+    private void SetPickerColumn(string key, string previous, string current, string next)
+    {
+        if (!pickerOptionLabels.TryGetValue(key, out Text[] labels) || labels == null || labels.Length < 3)
+            return;
+
+        labels[0].text = previous;
+        labels[1].text = current;
+        labels[2].text = next;
+    }
+
+    private void ClampDayToMonth()
+    {
+        int daysInMonth = DateTime.DaysInMonth(selectedReminderTime.Year, selectedReminderTime.Month);
+        if (selectedReminderTime.Day <= daysInMonth)
+            return;
+
+        selectedReminderTime = new DateTime(
+            selectedReminderTime.Year,
+            selectedReminderTime.Month,
+            daysInMonth,
+            selectedReminderTime.Hour,
+            selectedReminderTime.Minute,
+            0);
+    }
+
+    private static int Wrap(int value, int count)
+    {
+        return (value % count + count) % count;
+    }
+
+    private static int WrapDay(int day, int daysInMonth)
+    {
+        if (day < 1)
+            return daysInMonth;
+
+        if (day > daysInMonth)
+            return 1;
+
+        return day;
+    }
+
+    private static int WrapHour12(int hour)
+    {
+        if (hour < 1)
+            return 12;
+
+        if (hour > 12)
+            return 1;
+
+        return hour;
     }
 
     private static string GetInputValue(InputField input)
@@ -668,15 +936,6 @@ public class NoteEditPanel : MonoBehaviour
             return "";
 
         return value;
-    }
-
-    private static string GenerateTitleFromContent(string content)
-    {
-        if (string.IsNullOrWhiteSpace(content))
-            return "New Note";
-
-        string firstLine = content.Split('\n')[0].Trim();
-        return firstLine.Length <= 32 ? firstLine : firstLine.Substring(0, 32);
     }
 
     private static string NormalizeChoice(string value, string fallback, string[] allowedValues)
@@ -809,5 +1068,47 @@ public class RuntimeButtonActionRelay : MonoBehaviour
         }
 
         action.Invoke();
+    }
+}
+
+public class PickerColumnDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+{
+    private const float StepThreshold = 18f;
+
+    private UnityAction upAction;
+    private UnityAction downAction;
+    private float accumulatedDrag;
+
+    public void Configure(UnityAction onSwipeDown, UnityAction onSwipeUp)
+    {
+        upAction = onSwipeDown;
+        downAction = onSwipeUp;
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        accumulatedDrag = 0f;
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        accumulatedDrag += eventData.delta.y;
+
+        while (accumulatedDrag >= StepThreshold)
+        {
+            accumulatedDrag -= StepThreshold;
+            upAction?.Invoke();
+        }
+
+        while (accumulatedDrag <= -StepThreshold)
+        {
+            accumulatedDrag += StepThreshold;
+            downAction?.Invoke();
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        accumulatedDrag = 0f;
     }
 }
