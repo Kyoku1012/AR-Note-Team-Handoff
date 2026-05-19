@@ -1,6 +1,10 @@
 using System;
+using System.Collections;
 using System.IO;
+using TMPro;
 using UnityEngine;
+using UnityEngine.Networking;
+using UnityEngine.UI;
 
 #if UNITY_ANDROID
 using UnityEngine.Android;
@@ -9,6 +13,13 @@ using UnityEngine.Android;
 public class VoiceNoteManager : MonoBehaviour
 {
     public static VoiceNoteManager Instance { get; private set; }
+
+    [Header("Optional UI")]
+    public Button recordButton;
+    public Button stopButton;
+    public Button playButton;
+    public Text statusText;
+    public TextMeshProUGUI tmpStatusText;
 
     private const int SampleRate = 44100;
     private const int MaxRecordSeconds = 180;
@@ -30,17 +41,30 @@ public class VoiceNoteManager : MonoBehaviour
         Instance = this;
     }
 
+    private void Start()
+    {
+        StartCoroutine(RequestMicrophonePermissionThenInitialize());
+    }
+
     public void ToggleRecording(NoteView noteView)
     {
         if (noteView == null || noteView.Data == null) return;
 
-        if (recordingNote == noteView && Microphone.IsRecording(recordingDevice))
+        if (recordingNote == noteView && IsRecording(noteView))
         {
             StopRecording();
             return;
         }
 
         StartRecording(noteView);
+    }
+
+    public bool IsRecording(NoteView noteView)
+    {
+        return noteView != null
+            && recordingNote == noteView
+            && !string.IsNullOrWhiteSpace(recordingDevice)
+            && Microphone.IsRecording(recordingDevice);
     }
 
     public void StartRecording(NoteView noteView)
@@ -57,17 +81,18 @@ public class VoiceNoteManager : MonoBehaviour
 
         if (Microphone.devices.Length == 0)
         {
-            Debug.LogWarning("No microphone device found.");
+            SetStatus("No microphone device found.");
             return;
         }
 
-        if (Microphone.IsRecording(recordingDevice))
+        if (!string.IsNullOrWhiteSpace(recordingDevice) && Microphone.IsRecording(recordingDevice))
             StopRecording();
 
         recordingNote = noteView;
         recordingDevice = Microphone.devices[0];
         recordingClip = Microphone.Start(recordingDevice, false, MaxRecordSeconds, SampleRate);
-        Debug.Log("Voice note recording started.");
+        UpdateButtonState(recording: true, canPlay: false);
+        SetStatus("Recording...");
     }
 
     public void StopRecording()
@@ -81,9 +106,11 @@ public class VoiceNoteManager : MonoBehaviour
         if (samples <= 0)
         {
             ClearRecording();
+            SetStatus("Recording was empty.");
             return;
         }
 
+        samples = Mathf.Min(samples, recordingClip.samples);
         AudioClip trimmedClip = TrimClip(recordingClip, samples);
         Directory.CreateDirectory(VoiceFolder);
 
@@ -95,7 +122,8 @@ public class VoiceNoteManager : MonoBehaviour
         recordingNote.SaveAndRefresh();
 
         ClearRecording();
-        Debug.Log("Voice note recording saved.");
+        UpdateButtonState(recording: false, canPlay: true);
+        SetStatus("Voice note saved.");
     }
 
     public void DeleteVoice(NoteView noteView)
@@ -108,18 +136,68 @@ public class VoiceNoteManager : MonoBehaviour
         noteView.Data.hasVoiceNote = false;
         noteView.Data.voiceFilePath = "";
         noteView.SaveAndRefresh();
+        UpdateButtonState(recording: false, canPlay: false);
+        SetStatus("Voice note deleted.");
     }
 
     public void Play(string path, AudioSource audioSource)
     {
         if (audioSource == null || string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
+            SetStatus("Voice file missing.");
             return;
+        }
 
-        AudioClip clip = LoadWav(path);
-        if (clip == null) return;
+        StartCoroutine(LoadAndPlay(path, audioSource, false));
+    }
 
-        audioSource.clip = clip;
-        audioSource.Play();
+    public void PlayFromNote(NoteData data)
+    {
+        if (data == null || !data.hasVoiceNote || string.IsNullOrWhiteSpace(data.voiceFilePath))
+        {
+            SetStatus("No voice note for this note.");
+            return;
+        }
+
+        PlayFromNote(data, null);
+    }
+
+    public void PlayFromNote(NoteData data, AudioSource audioSource)
+    {
+        if (data == null || !data.hasVoiceNote || string.IsNullOrWhiteSpace(data.voiceFilePath))
+        {
+            SetStatus("No voice note for this note.");
+            return;
+        }
+
+        if (!File.Exists(data.voiceFilePath))
+        {
+            SetStatus("Voice file missing.");
+            Debug.LogWarning("Voice file not found: " + data.voiceFilePath);
+            return;
+        }
+
+        AudioSource targetSource = audioSource;
+        bool destroyWhenDone = false;
+        if (targetSource == null)
+        {
+            targetSource = gameObject.AddComponent<AudioSource>();
+            destroyWhenDone = true;
+        }
+
+        StartCoroutine(LoadAndPlay(data.voiceFilePath, targetSource, destroyWhenDone));
+    }
+
+    public bool LoadFromNote(NoteData data)
+    {
+        bool hasPlayableVoice = data != null
+            && data.hasVoiceNote
+            && !string.IsNullOrWhiteSpace(data.voiceFilePath)
+            && File.Exists(data.voiceFilePath);
+
+        UpdateButtonState(recording: false, canPlay: hasPlayableVoice);
+        SetStatus(hasPlayableVoice ? "Voice note loaded." : "Ready to record.");
+        return hasPlayableVoice;
     }
 
     public void ClearAllVoiceFiles()
@@ -161,29 +239,6 @@ public class VoiceNoteManager : MonoBehaviour
         File.WriteAllBytes(path, bytes);
     }
 
-    private AudioClip LoadWav(string path)
-    {
-        byte[] fileBytes = File.ReadAllBytes(path);
-        if (fileBytes.Length <= 44) return null;
-
-        int channels = BitConverter.ToInt16(fileBytes, 22);
-        int frequency = BitConverter.ToInt32(fileBytes, 24);
-        int sampleCount = (fileBytes.Length - 44) / 2;
-        float[] samples = new float[sampleCount];
-
-        int offset = 44;
-        for (int i = 0; i < sampleCount; i++)
-        {
-            short value = BitConverter.ToInt16(fileBytes, offset);
-            samples[i] = value / 32768f;
-            offset += 2;
-        }
-
-        AudioClip clip = AudioClip.Create(Path.GetFileNameWithoutExtension(path), sampleCount / channels, channels, frequency, false);
-        clip.SetData(samples, 0);
-        return clip;
-    }
-
     private byte[] ConvertToWav(float[] samples, int channels, int frequency)
     {
         byte[] pcmData = new byte[samples.Length * 2];
@@ -214,5 +269,91 @@ public class VoiceNoteManager : MonoBehaviour
             writer.Write(pcmData);
             return stream.ToArray();
         }
+    }
+
+    private IEnumerator RequestMicrophonePermissionThenInitialize()
+    {
+#if UNITY_ANDROID
+        if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
+        {
+            Permission.RequestUserPermission(Permission.Microphone);
+            yield return new WaitForSeconds(1.5f);
+        }
+#endif
+
+        yield return null;
+
+        bool hasMicrophone = Microphone.devices.Length > 0;
+        UpdateButtonState(recording: false, canPlay: false);
+
+        if (recordButton != null)
+            recordButton.interactable = hasMicrophone;
+
+        SetStatus(hasMicrophone ? "Ready to record." : "No microphone device found.");
+    }
+
+    private IEnumerator LoadAndPlay(string path, AudioSource audioSource, bool destroyWhenDone)
+    {
+        string url = new Uri(path).AbsoluteUri;
+        using (UnityWebRequest request = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.WAV))
+        {
+            yield return request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                SetStatus("Failed to load voice note.");
+                Debug.LogError("Failed to load voice note: " + request.error);
+
+                if (destroyWhenDone && audioSource != null)
+                    Destroy(audioSource);
+
+                yield break;
+            }
+
+            AudioClip clip = DownloadHandlerAudioClip.GetContent(request);
+            if (clip == null)
+            {
+                SetStatus("Failed to decode voice note.");
+
+                if (destroyWhenDone && audioSource != null)
+                    Destroy(audioSource);
+
+                yield break;
+            }
+
+            audioSource.clip = clip;
+            audioSource.Play();
+            SetStatus("Playing voice note...");
+
+            yield return new WaitForSeconds(clip.length);
+
+            if (destroyWhenDone && audioSource != null)
+                Destroy(audioSource);
+
+            SetStatus("Ready to record.");
+        }
+    }
+
+    private void UpdateButtonState(bool recording, bool canPlay)
+    {
+        if (recordButton != null)
+            recordButton.interactable = !recording && Microphone.devices.Length > 0;
+
+        if (stopButton != null)
+            stopButton.interactable = recording;
+
+        if (playButton != null)
+            playButton.interactable = !recording && canPlay;
+    }
+
+    private void SetStatus(string message)
+    {
+        if (statusText != null)
+            statusText.text = message;
+
+        if (tmpStatusText != null)
+            tmpStatusText.text = message;
+
+        Debug.Log("[VoiceNoteManager] " + message);
     }
 }

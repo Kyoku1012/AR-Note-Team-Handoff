@@ -57,6 +57,7 @@ public class NoteEditPanel : MonoBehaviour
         visibleToggle.isOn = data.isVisible;
         reminderToggle.isOn = data.hasReminder;
         reminderInput.text = data.reminderTime;
+        VoiceNoteManager.Instance?.LoadFromNote(data);
         UpdateVoiceStatus();
 
         gameObject.SetActive(true);
@@ -146,6 +147,11 @@ public class NoteEditPanel : MonoBehaviour
     {
         if (voiceStatusText == null || currentNote == null || currentNote.Data == null)
             return;
+        if (VoiceNoteManager.Instance != null && VoiceNoteManager.Instance.IsRecording(currentNote))
+        {
+            voiceStatusText.text = "Recording voice memo...";
+            return;
+        }
 
         voiceStatusText.text = currentNote.Data.hasVoiceNote ? "Voice memo attached" : "No voice memo";
     }
