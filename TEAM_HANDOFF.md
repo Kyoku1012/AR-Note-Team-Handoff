@@ -1,68 +1,50 @@
-# AR Note Team Handoff
+# Team Handoff
 
-This project is set up so each member can test and amend their module without breaking the shared AR note flow.
+Use this file when changing or testing another member's area. The goal is to keep each feature independent while sharing a small, clear interface.
 
-## How to Open and Check
+## Shared Interfaces
 
-1. Open the project with Unity `2021.3.45f2`.
-2. Let Package Manager finish resolving packages, especially `com.unity.mobile.notifications`.
-3. Open `Assets/Scenes/MainScene.unity`.
-4. Run `AR Note > Run Readiness Check` from the Unity top menu.
-5. Fix any listed readiness issues before building an APK.
+| Shared script | Purpose | Use it for | Do not use it for |
+| --- | --- | --- | --- |
+| `NoteData` | Serializable note data contract | Fields that must persist after restart | Temporary UI state |
+| `NoteManager` | Runtime note registry and save gateway | Add, update, delete, select, and retrieve notes | Feature-specific UI or platform logic |
+| `DatabaseManager` | Local JSON persistence | Saving/loading the full note list | Direct feature calls from AR, styling, alarm, or voice code |
+| `NoteView` | Scene adapter for one note prefab | Refreshing visuals and saving selected note changes | Owning feature-specific business rules |
+| `PlaceNote` | AR placement service | Creating/restoring anchored note views | Editing task, style, alarm, or voice data |
 
-## Shared Architecture
+Standard update flow:
 
-- `Assets/Scripts/Data/NoteData.cs` is the shared save model. Add new fields here only when the data must survive app restarts.
-- `Assets/Scripts/Managers/NoteManager.cs` is the single source of truth for all notes in memory.
-- `Assets/Scripts/Managers/DatabaseManager.cs` saves and loads local JSON from `Application.persistentDataPath/ar_notes.json`.
-- `Assets/Scripts/AR/NoteView.cs` binds one AR prefab instance to one `NoteData` record.
-- `Assets/Scripts/AR/PlaceNote.cs` owns Vuforia surface hit testing, note creation, and restore from saved world poses.
-- `Assets/Scripts/Styling/StylePanelController.cs` updates the currently selected `NoteView`.
-- `Assets/Scripts/Managers/ReminderManager.cs` schedules or cancels Android local reminders.
-- `Assets/Scripts/Managers/VoiceNoteManager.cs` records, saves, plays, and deletes WAV voice memos.
-- `Assets/Scripts/UI/NoteEditPanel.cs` is a runtime fallback edit UI, so the app stays testable even if scene UI is incomplete.
-- The runtime UI exposes `Create Note`, `Edit Note`, and `Clear DB`; `Create Note` uses ARCamera direction to choose desk/floor-like placement when looking down and wall/front placement when looking forward.
+1. Get the current `NoteView` from selection or creation.
+2. Change fields on `noteView.Data`.
+3. Call `noteView.SaveAndRefresh()`.
 
-## Folder Map
-
-- `Assets/Scripts/AR`: AR placement, anchors, note views, camera-facing helpers.
-- `Assets/Scripts/Data`: serializable data contracts shared by every member.
-- `Assets/Scripts/Managers`: persistence, note registry, reminders, and voice services.
-- `Assets/Scripts/Styling`: note visual style application and style-panel controls.
-- `Assets/Scripts/UI`: runtime UI panels, toolbar helpers, and simple UI tests.
-- `Assets/Editor`: editor-only checks and migration helpers.
-- `Assets/Scenes`: Unity scenes only.
-- `Assets/Prefabs`: reusable note and test prefabs.
+Use `NoteManager.UpdateNote(note)` only when there is no active `NoteView`.
 
 ## Member Boundaries
 
-- Member 1 should edit `Assets/Scripts/AR`, AR prefabs, Vuforia scene objects, and placement/orientation behavior.
-- Member 2 should edit task fields and UI through `Assets/Scripts/UI/NoteEditPanel.cs`, `Assets/Scripts/Managers/NoteManager.cs`, and `Assets/Scripts/Data/NoteData.cs`.
-- Member 3 should edit style assets, `Assets/Scripts/Styling`, and note prefab visuals.
-- Member 4 should edit reminder UI and `Assets/Scripts/Managers/ReminderManager.cs`.
-- Member 5 should edit voice controls and `Assets/Scripts/Managers/VoiceNoteManager.cs`.
+| Member | Main responsibility | Main files | Interface fields/methods |
+| --- | --- | --- | --- |
+| 1 | AR placement and restored note anchors | `Assets/Scripts/AR/PlaceNote.cs`, `Assets/Scripts/AR/NoteView.cs`, AR scene objects, note prefab | `PlaceNote.CreateCenterScreenNote`, `PlaceNote.AnchorCreated`, `NoteView.Initialize`, `NoteData.worldPosition`, `NoteData.worldRotation` |
+| 2 | Task CRUD and local persistence | `Assets/Scripts/Data/NoteData.cs`, `Assets/Scripts/Managers/NoteManager.cs`, `Assets/Scripts/Managers/DatabaseManager.cs`, `Assets/Scripts/UI/NoteEditPanel.cs` | `NoteManager.AddNote`, `UpdateNote`, `RemoveNote`, `GetNote`, `GetAllNotes`, `SelectNote`; `NoteData.title`, `content`, `annotation`, `isCompleted`, `isVisible` |
+| 3 | Styling | `Assets/Scripts/Styling/StylePanelController.cs`, `Assets/Scripts/Styling/NoteStyleManager.cs`, style sprites and prefab visuals | `StylePanelController.SetSelectedNote`, `NoteStyleManager.ApplyStyle`; `NoteData.colorName`, `colorLabel`, `iconId`, `priorityId` |
+| 4 | Alarms and reminders | `Assets/Scripts/Managers/AlarmManager.cs`, `Assets/Scripts/Managers/ReminderManager.cs`, alarm controls in `NoteEditPanel.cs` | `AlarmManager.ScheduleOrCancel`, `Cancel`, `Snooze`, `Dismiss`; `NoteData.hasAlarm`, `alarmTime`, `alarmRepeatRule`, `alarmStatus`, `alarmSnoozeMinutes` |
+| 5 | Voice notes, speech input, and integration checks | `Assets/Scripts/Managers/VoiceNoteManager.cs`, `Assets/Scripts/Managers/SpeechToTextManager.cs`, `Assets/Plugins/Android/SpeechRecognizerBridge.java`, voice/speech controls in `NoteEditPanel.cs` | `VoiceNoteManager.ToggleRecording`, `Play`, `DeleteVoice`; `SpeechToTextManager.StartDictation`; `NoteData.hasVoiceNote`, `voiceFilePath`, `hasTranscript`, `transcriptText`, `transcriptSource` |
 
-Avoid duplicating save logic in feature scripts. Change the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`.
+## Independence Rules
 
-## Android Demo Checklist
+- Keep feature logic inside the owning module.
+- Add fields to `NoteData` only when the value must be saved or shared.
+- Do not duplicate JSON save/load logic outside `DatabaseManager`.
+- Do not create a second note registry; use `NoteManager`.
+- Do not make styling, alarm, voice, or speech scripts instantiate AR notes directly; go through `PlaceNote` or an existing `NoteView`.
+- Preserve note prefab child names used by auto-wiring: `TitleText`, `ContentText`, `CheckButton`, `EditButton`, `DeleteButton`, and `VoiceButton`.
 
-1. Build target is Android.
-2. `MainScene` is in Build Settings.
-3. App launches and requests camera permission.
-4. Vuforia detects a surface.
-5. Tapping a surface creates a note.
-6. `Create Note` creates a camera-directed fallback note when plane detection is unavailable.
-7. Tapping UI does not create a note.
-8. Edit title/content/annotation and save.
-9. Apply color, icon, and priority from the style panel.
-10. Toggle completed and visible.
-11. Set reminder time in `yyyy-MM-dd HH:mm` format and confirm the notification fires.
-12. Record and play a voice memo.
-13. Restart the app and confirm notes, styles, tasks, reminders, and voice paths persist.
+## Safe Amendment Checklist
 
-## Safe Amendment Rules
-
-- Keep field names in `NoteData` stable unless all loading/saving code is updated.
-- Keep note prefab child names `TitleText`, `ContentText`, `CheckButton`, `EditButton`, `DeleteButton`, and `VoiceButton` if you want `NoteView` auto-wiring to work.
-- If a scene object is removed, run the readiness check before committing.
-- Test on a real Android device for AR, notifications, and microphone; Editor testing cannot fully validate these features.
+1. Pull the latest project files.
+2. Open `Assets/Scenes/MainScene.unity`.
+3. Run `AR Note > Run Readiness Check`.
+4. Test your own feature in Play Mode.
+5. Test on Android if your feature uses AR, notification, microphone, or speech recognition.
+6. Check `git status` before sharing changes.
+7. Do not commit generated folders such as `Library`, `Logs`, `Temp`, `UserSettings`, builds, APKs, or keystore files.

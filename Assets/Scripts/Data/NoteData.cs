@@ -19,8 +19,21 @@ public class NoteData
     public bool hasReminder;
     public string reminderTime; // yyyy-MM-dd HH:mm, local device time
 
+    public bool hasAlarm;
+    public string alarmTime; // yyyy-MM-dd HH:mm, local device time
+    public string alarmRepeatRule; // none, daily, weekly
+    public string alarmStatus; // none, scheduled, fired, dismissed, snoozed
+    public string alarmSnoozeUntil; // yyyy-MM-dd HH:mm, local device time
+    public int alarmSnoozeMinutes = 5;
+    public string alarmLastFiredTime;
+
     public bool hasVoiceNote;
     public string voiceFilePath;
+
+    public bool hasTranscript;
+    public string transcriptText;
+    public string transcriptSource; // title, content, annotation
+    public string transcriptUpdatedAt;
 
     public Vector3 worldPosition;
     public Vector3 worldRotation;
@@ -41,8 +54,19 @@ public class NoteData
             priorityId = priorityId,
             hasReminder = hasReminder,
             reminderTime = reminderTime,
+            hasAlarm = hasAlarm,
+            alarmTime = alarmTime,
+            alarmRepeatRule = alarmRepeatRule,
+            alarmStatus = alarmStatus,
+            alarmSnoozeUntil = alarmSnoozeUntil,
+            alarmSnoozeMinutes = alarmSnoozeMinutes,
+            alarmLastFiredTime = alarmLastFiredTime,
             hasVoiceNote = hasVoiceNote,
             voiceFilePath = voiceFilePath,
+            hasTranscript = hasTranscript,
+            transcriptText = transcriptText,
+            transcriptSource = transcriptSource,
+            transcriptUpdatedAt = transcriptUpdatedAt,
             worldPosition = worldPosition,
             worldRotation = worldRotation
         };
@@ -74,9 +98,46 @@ public class NoteData
         if (reminderTime == null)
             reminderTime = "";
 
+        if (!hasAlarm && hasReminder)
+        {
+            hasAlarm = true;
+            alarmTime = reminderTime;
+        }
+
+        if (alarmTime == null)
+            alarmTime = "";
+
+        if (string.IsNullOrWhiteSpace(alarmRepeatRule))
+            alarmRepeatRule = "none";
+
+        if (string.IsNullOrWhiteSpace(alarmStatus))
+            alarmStatus = hasAlarm ? "scheduled" : "none";
+
+        if (alarmSnoozeUntil == null)
+            alarmSnoozeUntil = "";
+
+        if (alarmSnoozeMinutes <= 0)
+            alarmSnoozeMinutes = 5;
+
+        if (alarmLastFiredTime == null)
+            alarmLastFiredTime = "";
+
+        hasReminder = hasAlarm;
+        reminderTime = alarmTime;
+
         if (voiceFilePath == null)
             voiceFilePath = "";
 
+        if (transcriptText == null)
+            transcriptText = "";
+
+        if (transcriptSource == null)
+            transcriptSource = "";
+
+        if (transcriptUpdatedAt == null)
+            transcriptUpdatedAt = "";
+
+        hasTranscript = !string.IsNullOrWhiteSpace(transcriptText);
         colorLabel = colorName;
     }
 }

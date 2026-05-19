@@ -142,12 +142,12 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
     public void PlayVoice()
     {
-        if (Data == null || string.IsNullOrWhiteSpace(Data.voiceFilePath)) return;
+        if (Data == null) return;
 
         if (audioSource == null)
             audioSource = gameObject.AddComponent<AudioSource>();
 
-        VoiceNoteManager.Instance?.Play(Data.voiceFilePath, audioSource);
+        VoiceNoteManager.Instance?.PlayFromNote(Data, audioSource);
     }
 
     public void SaveAndRefresh()
