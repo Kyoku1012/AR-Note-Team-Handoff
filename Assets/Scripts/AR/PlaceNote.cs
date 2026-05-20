@@ -329,6 +329,9 @@ public class PlaceNote : MonoBehaviour
             if (hitObject.GetComponentInParent<NoteView>() != null)
                 continue;
 
+            if (HasComponentInParentNamed(hitObject, "NoteHistoryRowDragRelay"))
+                continue;
+
             if (TryHandleInteractiveUi(hitObject))
                 return true;
         }
@@ -407,7 +410,29 @@ public class PlaceNote : MonoBehaviour
     private bool IsBusinessUiBlocker(GameObject hitObject)
     {
         return hitObject.GetComponentInParent<NoteEditPanel>() != null
+            || hitObject.GetComponentInParent<NoteHistoryPanel>() != null
             || hitObject.GetComponentInParent<StylePanelController>() != null
             || hitObject.GetComponentInParent<Selectable>() != null;
+    }
+
+    private bool HasComponentInParentNamed(GameObject hitObject, string componentTypeName)
+    {
+        if (hitObject == null || string.IsNullOrWhiteSpace(componentTypeName))
+            return false;
+
+        Transform current = hitObject.transform;
+        while (current != null)
+        {
+            Component[] components = current.GetComponents<Component>();
+            foreach (Component component in components)
+            {
+                if (component != null && component.GetType().Name == componentTypeName)
+                    return true;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
     }
 }
