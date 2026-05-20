@@ -19,6 +19,7 @@ public class NoteData
     public bool hasReminder;
     public string reminderTime; // yyyy-MM-dd HH:mm, local device time
 
+    // Legacy scheduler fields kept for saved-data compatibility while reminders are consolidated.
     public bool hasAlarm;
     public string alarmTime; // yyyy-MM-dd HH:mm, local device time
     public string alarmRepeatRule; // none, daily, weekly
@@ -26,9 +27,6 @@ public class NoteData
     public string alarmSnoozeUntil; // yyyy-MM-dd HH:mm, local device time
     public int alarmSnoozeMinutes = 5;
     public string alarmLastFiredTime;
-
-    public bool hasVoiceNote;
-    public string voiceFilePath;
 
     public bool hasTranscript;
     public string transcriptText;
@@ -61,8 +59,6 @@ public class NoteData
             alarmSnoozeUntil = alarmSnoozeUntil,
             alarmSnoozeMinutes = alarmSnoozeMinutes,
             alarmLastFiredTime = alarmLastFiredTime,
-            hasVoiceNote = hasVoiceNote,
-            voiceFilePath = voiceFilePath,
             hasTranscript = hasTranscript,
             transcriptText = transcriptText,
             transcriptSource = transcriptSource,
@@ -70,6 +66,29 @@ public class NoteData
             worldPosition = worldPosition,
             worldRotation = worldRotation
         };
+    }
+
+    public void SetReminder(string localReminderTime, string repeatRule = "none")
+    {
+        reminderTime = localReminderTime ?? "";
+        hasReminder = !string.IsNullOrWhiteSpace(reminderTime);
+
+        hasAlarm = hasReminder;
+        alarmTime = reminderTime;
+        alarmRepeatRule = string.IsNullOrWhiteSpace(repeatRule) ? "none" : repeatRule;
+        alarmStatus = hasReminder ? "scheduled" : "none";
+        alarmSnoozeUntil = "";
+    }
+
+    public void ClearReminder()
+    {
+        hasReminder = false;
+        reminderTime = "";
+        hasAlarm = false;
+        alarmTime = "";
+        alarmStatus = "none";
+        alarmRepeatRule = "none";
+        alarmSnoozeUntil = "";
     }
 
     public void ApplyDefaults()
@@ -126,9 +145,6 @@ public class NoteData
 
         hasReminder = !string.IsNullOrWhiteSpace(reminderTime);
         hasAlarm = hasReminder;
-
-        if (voiceFilePath == null)
-            voiceFilePath = "";
 
         if (transcriptText == null)
             transcriptText = "";

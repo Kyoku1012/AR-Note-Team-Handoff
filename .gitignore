@@ -118,6 +118,15 @@ InitTestScene*.unity*
 /[Aa]ssets/VuforiaLicense.cs
 /[Aa]ssets/VuforiaLicense.cs.meta
 
+# Unused local UI asset drafts
+/[Aa]ssets/[Ss]cenes/UI/app-UI/
+/[Aa]ssets/[Ss]cenes/UI/app-UI.meta
+/[Aa]ssets/[Ss]cenes/UI/editNotePanel-UI/
+/[Aa]ssets/[Ss]cenes/UI/editNotePanel-UI.meta
+
+# Local MCP Unity connector settings
+/[Pp]roject[Ss]ettings/McpUnitySettings.json
+
 # Android signing
 *.keystore
 *.jks

@@ -1,6 +1,6 @@
 # AR-NOTE-TEAM-HAND-OFF
 
-AR Note is a Unity/Vuforia Android project for placing digital sticky notes in the user's physical environment. Users can create notes in AR, edit them as tasks, style them, set alarms, and attach voice or speech-to-text input.
+AR Note is a Unity/Vuforia Android project for placing digital sticky notes in the user's physical environment. Users can create notes in AR, edit them as tasks, style them, set reminders, and add speech-to-text input.
 
 ## Project Goal
 
@@ -13,15 +13,14 @@ The app supports contextual task management. A note can be placed near a real ob
 - Add, edit, delete, complete, show, and hide notes.
 - Local JSON persistence at `Application.persistentDataPath/ar_notes.json`.
 - Note styling with color labels, icons, and priority markers.
-- Android local alarms with optional repeat, snooze, and dismiss behavior.
-- Voice memo recording and playback with WAV files saved under `Application.persistentDataPath/voice_notes`.
-- Android speech-to-text input for title, content, and annotation fields.
+- Android local reminders with optional repeat, snooze, and dismiss behavior.
+- Android speech-to-text input for note content.
 
 ## How the Project Works
 
 The project is organized around one shared note model and several independent feature modules.
 
-`NoteData` is the shared data contract. It stores the note text, task state, style, alarm fields, voice memo path, transcript fields, and AR world pose.
+`NoteData` is the shared data contract. It stores the note text, task state, style, reminder fields, transcript fields, and AR world pose. Reminder writes should go through `NoteData.SetReminder` and `NoteData.ClearReminder` so the saved reminder fields and legacy alarm scheduler fields stay in sync.
 
 `NoteManager` is the central note service. Other modules add, update, delete, select, and retrieve notes through it instead of saving data themselves.
 
@@ -31,7 +30,7 @@ The project is organized around one shared note model and several independent fe
 
 `PlaceNote` owns AR placement. It creates note anchors from Vuforia hit tests and restores saved notes from their world positions.
 
-Feature modules update the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`.
+Feature modules update the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`. Reminder scheduling should go through `ReminderManager`; `AlarmManager` is the lower-level Android notification scheduler.
 
 ## Member Modules and Interfaces
 
@@ -40,8 +39,8 @@ Feature modules update the selected note's `NoteData`, then call `NoteView.SaveA
 | Member 1 | AR placement | `Assets/Scripts/AR`, AR prefabs, Vuforia scene setup | Creates notes through `PlaceNote`, initializes each note through `NoteView.Initialize`, stores pose in `NoteData.worldPosition/worldRotation` |
 | Member 2 | Task management | `NoteData`, `NoteManager`, `DatabaseManager`, edit UI | Uses `NoteManager.AddNote`, `UpdateNote`, `RemoveNote`, `GetAllNotes`, `SelectNote`; task state lives in `NoteData` |
 | Member 3 | Custom styling | `Assets/Scripts/Styling`, note visual assets | Reads/writes `NoteData.colorName`, `iconId`, `priorityId`; applies visuals through `NoteStyleManager.ApplyStyle` |
-| Member 4 | Reminders and alarms | `AlarmManager`, reminder UI fields | Reads/writes `NoteData.hasAlarm`, `alarmTime`, `alarmRepeatRule`, `alarmStatus`; schedules through `AlarmManager.ScheduleOrCancel` |
-| Member 5 | Voice notes and speech input | `VoiceNoteManager`, `SpeechToTextManager`, Android speech bridge | Reads/writes `NoteData.hasVoiceNote`, `voiceFilePath`, transcript fields; starts recording through `VoiceNoteManager` and dictation through `SpeechToTextManager` |
+| Member 4 | Reminders | `ReminderManager`, `AlarmManager`, reminder UI fields | Reads/writes reminders through `NoteData.SetReminder` and `ClearReminder`; schedules through `ReminderManager.ScheduleOrCancel`; `AlarmManager` owns Android notification delivery |
+| Member 5 | Speech input | `SpeechToTextManager`, Android speech bridge | Reads/writes transcript fields; starts dictation through `SpeechToTextManager`; no voice recording or audio-file storage |
 
 Each member should keep feature-specific logic inside their module. Shared changes should go through `NoteData`, `NoteManager`, or `NoteView` only when the data or behavior is needed by more than one module.
 
@@ -49,9 +48,9 @@ Each member should keep feature-specific logic inside their module. Shared chang
 
 - `Assets/Scripts/AR`: AR placement, anchors, note views, and camera-facing helpers.
 - `Assets/Scripts/Data`: serializable shared data contracts.
-- `Assets/Scripts/Managers`: note registry, persistence, alarms, reminders, voice memos, and speech-to-text services.
+- `Assets/Scripts/Managers`: note registry, persistence, alarms, reminders, and speech-to-text services.
 - `Assets/Scripts/Styling`: color, icon, and priority application.
-- `Assets/Scripts/UI`: runtime edit panel, toolbar helpers, and UI tests.
+- `Assets/Scripts/UI`: runtime edit panel, toolbar helpers, picker drag handling, button action relay, and UI tests.
 - `Assets/Editor`: readiness checks and migration helpers.
 - `Assets/Plugins/Android`: Android-native speech recognition bridge.
 
@@ -70,7 +69,7 @@ Each member should keep feature-specific logic inside their module. Shared chang
 3. Scan a surface with Vuforia Ground Plane.
 4. Tap a detected surface to place a note.
 5. Tap the note or `Edit Note`.
-6. Edit title, content, annotation, completion, visibility, alarm, voice memo, and speech input.
+6. Edit title, content, annotation, completion, visibility, reminder, style, and speech input.
 7. Apply color, icon, and priority from the style controls.
 8. Close and reopen the app to confirm saved notes restore.
 

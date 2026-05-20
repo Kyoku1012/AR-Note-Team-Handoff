@@ -4,6 +4,15 @@ public class ReminderManager : MonoBehaviour
 {
     public static ReminderManager Instance { get; private set; }
 
+    public const string RepeatNone = AlarmManager.RepeatNone;
+    public const string RepeatDaily = AlarmManager.RepeatDaily;
+    public const string RepeatWeekly = AlarmManager.RepeatWeekly;
+    public const string StatusNone = AlarmManager.StatusNone;
+    public const string StatusScheduled = AlarmManager.StatusScheduled;
+    public const string StatusFired = AlarmManager.StatusFired;
+    public const string StatusDismissed = AlarmManager.StatusDismissed;
+    public const string StatusSnoozed = AlarmManager.StatusSnoozed;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -42,6 +51,18 @@ public class ReminderManager : MonoBehaviour
     {
         EnsureAlarmManager();
         AlarmManager.Instance?.Cancel(note);
+    }
+
+    public void Dismiss(NoteData note)
+    {
+        EnsureAlarmManager();
+        AlarmManager.Instance?.Dismiss(note);
+    }
+
+    public void Snooze(NoteData note, int minutes)
+    {
+        EnsureAlarmManager();
+        AlarmManager.Instance?.Snooze(note, minutes);
     }
 
     private void EnsureAlarmManager()

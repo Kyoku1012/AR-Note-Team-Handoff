@@ -80,7 +80,7 @@ public class NoteEditPanel : MonoBehaviour
         selectedColorName = NormalizeChoice(data.colorName, "yellow", ColorNames);
         selectedIconId = NormalizeChoice(data.iconId, "", IconIds);
         selectedPriorityId = NormalizeChoice(data.priorityId, "", PriorityIds);
-        reminderToggle.isOn = data.hasReminder || string.IsNullOrWhiteSpace(data.reminderTime);
+        reminderToggle.isOn = data.hasReminder && !string.IsNullOrWhiteSpace(data.reminderTime);
         SetReminderTime(string.IsNullOrWhiteSpace(data.reminderTime) ? data.alarmTime : data.reminderTime);
         UpdateSelectionVisuals();
         UpdateIconSprites();
@@ -115,6 +115,11 @@ public class NoteEditPanel : MonoBehaviour
         }
     }
 
+    public void StartSpeechInput()
+    {
+        DictateNote();
+    }
+
     private void Save()
     {
         if (currentNote == null || currentNote.Data == null)
@@ -132,12 +137,7 @@ public class NoteEditPanel : MonoBehaviour
         data.priorityId = selectedPriorityId;
         if (!reminderToggle.isOn || !hasSelectedReminderTime)
         {
-            data.hasReminder = false;
-            data.reminderTime = "";
-            data.hasAlarm = false;
-            data.alarmTime = "";
-            data.alarmStatus = AlarmManager.StatusNone;
-            data.alarmRepeatRule = AlarmManager.RepeatNone;
+            data.ClearReminder();
             currentNote.SaveAndRefresh();
             Close();
             return;
@@ -150,11 +150,7 @@ public class NoteEditPanel : MonoBehaviour
             UpdateReminderSummary();
         }
 
-        data.hasReminder = true;
-        data.reminderTime = AlarmManager.FormatAlarmTime(selectedReminderTime);
-        data.hasAlarm = true;
-        data.alarmTime = data.reminderTime;
-        data.alarmRepeatRule = AlarmManager.RepeatNone;
+        data.SetReminder(ReminderManager.FormatReminderTime(selectedReminderTime), ReminderManager.RepeatNone);
 
         currentNote.SaveAndRefresh();
         Close();
@@ -708,9 +704,9 @@ public class NoteEditPanel : MonoBehaviour
         return button;
     }
 
-    private void SetReminderTime(string alarmTime)
+    private void SetReminderTime(string reminderTime)
     {
-        if (string.IsNullOrWhiteSpace(alarmTime) || !AlarmManager.TryParseAlarmTime(alarmTime, out DateTime dateTime))
+        if (string.IsNullOrWhiteSpace(reminderTime) || !ReminderManager.TryParseReminderTime(reminderTime, out DateTime dateTime))
         {
             selectedReminderTime = DateTime.Now;
             hasSelectedReminderTime = true;
@@ -1047,68 +1043,5 @@ public class NoteEditPanel : MonoBehaviour
         texture.Apply();
         circleSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
         return circleSprite;
-    }
-}
-
-public class RuntimeButtonActionRelay : MonoBehaviour
-{
-    private UnityAction action;
-
-    public void Configure(UnityAction newAction)
-    {
-        action = newAction;
-    }
-
-    public void Invoke()
-    {
-        if (action == null)
-        {
-            Debug.LogWarning("Runtime button action is missing on " + name);
-            return;
-        }
-
-        action.Invoke();
-    }
-}
-
-public class PickerColumnDragHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
-{
-    private const float StepThreshold = 18f;
-
-    private UnityAction upAction;
-    private UnityAction downAction;
-    private float accumulatedDrag;
-
-    public void Configure(UnityAction onSwipeDown, UnityAction onSwipeUp)
-    {
-        upAction = onSwipeDown;
-        downAction = onSwipeUp;
-    }
-
-    public void OnBeginDrag(PointerEventData eventData)
-    {
-        accumulatedDrag = 0f;
-    }
-
-    public void OnDrag(PointerEventData eventData)
-    {
-        accumulatedDrag += eventData.delta.y;
-
-        while (accumulatedDrag >= StepThreshold)
-        {
-            accumulatedDrag -= StepThreshold;
-            upAction?.Invoke();
-        }
-
-        while (accumulatedDrag <= -StepThreshold)
-        {
-            accumulatedDrag += StepThreshold;
-            downAction?.Invoke();
-        }
-    }
-
-    public void OnEndDrag(PointerEventData eventData)
-    {
-        accumulatedDrag = 0f;
     }
 }

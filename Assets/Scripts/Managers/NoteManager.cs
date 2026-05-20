@@ -77,7 +77,7 @@ public class NoteManager : MonoBehaviour
         }
 
         allNotes.Add(note);
-        AlarmManager.Instance?.ScheduleOrCancel(note);
+        ReminderManager.Instance?.ScheduleOrCancel(note);
         SaveNotes();
     }
 
@@ -129,7 +129,7 @@ public class NoteManager : MonoBehaviour
         if (activeViews.TryGetValue(note.id, out NoteView view))
             view.RefreshFromData();
 
-        AlarmManager.Instance?.ScheduleOrCancel(note);
+        ReminderManager.Instance?.ScheduleOrCancel(note);
         SaveNotes();
     }
 
@@ -140,7 +140,7 @@ public class NoteManager : MonoBehaviour
         NoteData note = allNotes.FirstOrDefault(n => n.id == noteID);
         if (note == null) return;
 
-        AlarmManager.Instance?.Cancel(note);
+        ReminderManager.Instance?.Cancel(note);
 
         if (activeViews.TryGetValue(noteID, out NoteView view) && view != null)
             Destroy(view.AnchorRoot != null ? view.AnchorRoot : view.gameObject);
@@ -164,7 +164,7 @@ public class NoteManager : MonoBehaviour
         foreach (NoteData note in allNotes)
         {
             if (note != null)
-                AlarmManager.Instance?.Cancel(note);
+                ReminderManager.Instance?.Cancel(note);
         }
 
         foreach (NoteView view in activeViews.Values.ToList())
@@ -177,7 +177,6 @@ public class NoteManager : MonoBehaviour
         allNotes.Clear();
         SelectedNote = null;
 
-        VoiceNoteManager.Instance?.ClearAllVoiceFiles();
         EnsureDatabaseManager();
         databaseManager?.ClearAllSavedData();
     }
@@ -233,12 +232,6 @@ public class NoteManager : MonoBehaviour
     {
         if (FindObjectOfType<ReminderManager>() == null)
             gameObject.AddComponent<ReminderManager>();
-
-        if (FindObjectOfType<AlarmManager>() == null)
-            gameObject.AddComponent<AlarmManager>();
-
-        if (FindObjectOfType<VoiceNoteManager>() == null)
-            gameObject.AddComponent<VoiceNoteManager>();
 
         if (FindObjectOfType<SpeechToTextManager>() == null)
             gameObject.AddComponent<SpeechToTextManager>();
