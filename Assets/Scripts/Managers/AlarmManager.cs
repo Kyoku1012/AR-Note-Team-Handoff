@@ -43,7 +43,9 @@ public class AlarmManager : MonoBehaviour
 
         Instance = this;
         RegisterChannel();
+#if UNITY_ANDROID
         ProcessLastNotificationIntent();
+#endif
     }
 
     private void OnApplicationFocus(bool hasFocus)
