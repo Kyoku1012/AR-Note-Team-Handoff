@@ -54,13 +54,56 @@ Each member should keep feature-specific logic inside their module. Shared chang
 - `Assets/Editor`: readiness checks and migration helpers.
 - `Assets/Plugins/Android`: Android-native speech recognition bridge.
 
-## Setup
+## Local Setup
 
-1. Open the project in Unity `2021.3.45f2`.
-2. Let Package Manager resolve dependencies, including `com.unity.mobile.notifications`.
-3. Open `Assets/Scenes/MainScene.unity`.
-4. Run `AR Note > Run Readiness Check`.
-5. Switch build target to Android for real AR, microphone, notification, and speech tests.
+1. Install Unity `2021.3.45f2` through Unity Hub.
+2. In Unity Hub, install Android Build Support with Android SDK & NDK Tools and OpenJDK.
+3. Clone the team handoff repository:
+
+```bash
+git clone https://github.com/Kyoku1012/AR-Note-Team-Handoff.git
+cd AR-Note-Team-Handoff
+```
+
+4. Open Unity Hub, click `Add`, and select the cloned project folder.
+5. Open the project with Unity `2021.3.45f2`.
+6. Let Unity import assets and let Package Manager resolve dependencies, including `com.unity.mobile.notifications` and the local Vuforia package.
+7. Open `Assets/Scenes/MainScene.unity`.
+8. Run `AR Note > Run Readiness Check`.
+
+Do not commit generated local folders such as `Library`, `Logs`, `Temp`, `UserSettings`, or local tool settings.
+
+## Run In Unity Editor
+
+1. Open `Assets/Scenes/MainScene.unity`.
+2. Press Play.
+3. Confirm the Console has no red compile/runtime errors.
+4. Click `Create Note` to create an Editor-friendly fallback note without waiting for Vuforia plane detection.
+5. Tap the note or click `Edit Note`.
+6. Edit title, content, completion, visibility, reminder, style, or speech fields where available.
+7. Click `Save`.
+8. Stop Play Mode, enter Play Mode again, and confirm saved notes restore from local JSON.
+
+Editor testing can verify CRUD, styling calls, persistence, runtime UI, and most note-management logic. Real AR plane detection, Android notifications, microphone permission, and speech recognition require an Android device.
+
+## Android Build And Run
+
+1. Connect an Android phone with USB debugging enabled.
+2. In Unity, open `File > Build Settings`.
+3. Select `Android`, then click `Switch Platform`.
+4. Confirm `Assets/Scenes/MainScene.unity` is included in `Scenes In Build`.
+5. Open `Edit > Project Settings > Player`.
+6. Confirm the Android package settings are valid for the test device.
+7. Confirm the custom Android manifest at `Assets/Plugins/Android/AndroidManifest.xml` is present so camera, microphone, notification, and speech-recognition permissions are available.
+8. Click `Build And Run`.
+9. On the phone, accept camera, microphone, notification, and exact alarm permission prompts when they appear.
+10. Move the phone slowly over a textured surface until Vuforia detects a plane.
+11. Tap the detected surface to place a note.
+12. Set a future reminder and verify the Android notification appears.
+13. Use speech input on a note and verify recognized text is appended to the note content.
+14. Close and reopen the app to confirm notes restore with position, text, style, reminder, and transcript data.
+
+If Build And Run fails, first run `AR Note > Run Readiness Check`, then check Package Manager resolution, Android SDK/NDK installation, and Console errors.
 
 ## Demo Flow
 
