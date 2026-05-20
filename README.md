@@ -20,7 +20,7 @@ The app supports contextual task management. A note can be placed near a real ob
 
 The project is organized around one shared note model and several independent feature modules.
 
-`NoteData` is the shared data contract. It stores the note text, task state, style, reminder fields, transcript fields, and AR world pose.
+`NoteData` is the shared data contract. It stores the note text, task state, style, reminder fields, transcript fields, and AR world pose. Reminder writes should go through `NoteData.SetReminder` and `NoteData.ClearReminder` so the saved reminder fields and legacy alarm scheduler fields stay in sync.
 
 `NoteManager` is the central note service. Other modules add, update, delete, select, and retrieve notes through it instead of saving data themselves.
 
@@ -30,7 +30,7 @@ The project is organized around one shared note model and several independent fe
 
 `PlaceNote` owns AR placement. It creates note anchors from Vuforia hit tests and restores saved notes from their world positions.
 
-Feature modules update the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`.
+Feature modules update the selected note's `NoteData`, then call `NoteView.SaveAndRefresh()` or `NoteManager.UpdateNote(note)`. Reminder scheduling should go through `ReminderManager`; `AlarmManager` is the lower-level Android notification scheduler.
 
 ## Member Modules and Interfaces
 
@@ -39,8 +39,8 @@ Feature modules update the selected note's `NoteData`, then call `NoteView.SaveA
 | Member 1 | AR placement | `Assets/Scripts/AR`, AR prefabs, Vuforia scene setup | Creates notes through `PlaceNote`, initializes each note through `NoteView.Initialize`, stores pose in `NoteData.worldPosition/worldRotation` |
 | Member 2 | Task management | `NoteData`, `NoteManager`, `DatabaseManager`, edit UI | Uses `NoteManager.AddNote`, `UpdateNote`, `RemoveNote`, `GetAllNotes`, `SelectNote`; task state lives in `NoteData` |
 | Member 3 | Custom styling | `Assets/Scripts/Styling`, note visual assets | Reads/writes `NoteData.colorName`, `iconId`, `priorityId`; applies visuals through `NoteStyleManager.ApplyStyle` |
-| Member 4 | Reminders and alarms | `AlarmManager`, reminder UI fields | Reads/writes `NoteData.hasAlarm`, `alarmTime`, `alarmRepeatRule`, `alarmStatus`; schedules through `AlarmManager.ScheduleOrCancel` |
-| Member 5 | Speech input | `SpeechToTextManager`, Android speech bridge | Reads/writes transcript fields; starts dictation through `SpeechToTextManager` |
+| Member 4 | Reminders | `ReminderManager`, `AlarmManager`, reminder UI fields | Reads/writes reminders through `NoteData.SetReminder` and `ClearReminder`; schedules through `ReminderManager.ScheduleOrCancel`; `AlarmManager` owns Android notification delivery |
+| Member 5 | Speech input | `SpeechToTextManager`, Android speech bridge | Reads/writes transcript fields; starts dictation through `SpeechToTextManager`; no voice recording or audio-file storage |
 
 Each member should keep feature-specific logic inside their module. Shared changes should go through `NoteData`, `NoteManager`, or `NoteView` only when the data or behavior is needed by more than one module.
 
@@ -50,7 +50,7 @@ Each member should keep feature-specific logic inside their module. Shared chang
 - `Assets/Scripts/Data`: serializable shared data contracts.
 - `Assets/Scripts/Managers`: note registry, persistence, alarms, reminders, and speech-to-text services.
 - `Assets/Scripts/Styling`: color, icon, and priority application.
-- `Assets/Scripts/UI`: runtime edit panel, toolbar helpers, and UI tests.
+- `Assets/Scripts/UI`: runtime edit panel, toolbar helpers, picker drag handling, button action relay, and UI tests.
 - `Assets/Editor`: readiness checks and migration helpers.
 - `Assets/Plugins/Android`: Android-native speech recognition bridge.
 
