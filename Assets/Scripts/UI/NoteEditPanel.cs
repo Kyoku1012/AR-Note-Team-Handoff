@@ -26,6 +26,7 @@ public class NoteEditPanel : MonoBehaviour
     private Toggle reminderToggle;
     private Text speechStatusText;
     private GameObject launcherRoot;
+    private NoteData currentNoteData;
 
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
@@ -64,6 +65,7 @@ public class NoteEditPanel : MonoBehaviour
     public void Open(NoteView noteView)
     {
         currentNote = noteView;
+        currentNoteData = currentNote == null ? null : currentNote.Data;
         if (currentNote == null || currentNote.Data == null)
             return;
 
@@ -82,6 +84,30 @@ public class NoteEditPanel : MonoBehaviour
         selectedPriorityId = NormalizeChoice(data.priorityId, "", PriorityIds);
         reminderToggle.isOn = data.hasReminder && !string.IsNullOrWhiteSpace(data.reminderTime);
         SetReminderTime(string.IsNullOrWhiteSpace(data.reminderTime) ? data.alarmTime : data.reminderTime);
+        UpdateSelectionVisuals();
+        UpdateIconSprites();
+        UpdateSpeechStatus("");
+
+        gameObject.SetActive(true);
+        SetLauncherVisible(false);
+    }
+
+    public void Open(NoteData noteData)
+    {
+        currentNote = null;
+        currentNoteData = noteData;
+        if (currentNoteData == null)
+            return;
+
+        currentNoteData.ApplyDefaults();
+
+        titleInput.text = currentNoteData.title == "New Note" ? "" : currentNoteData.title;
+        noteInput.text = currentNoteData.content;
+        selectedColorName = NormalizeChoice(currentNoteData.colorName, "yellow", ColorNames);
+        selectedIconId = NormalizeChoice(currentNoteData.iconId, "", IconIds);
+        selectedPriorityId = NormalizeChoice(currentNoteData.priorityId, "", PriorityIds);
+        reminderToggle.isOn = currentNoteData.hasReminder && !string.IsNullOrWhiteSpace(currentNoteData.reminderTime);
+        SetReminderTime(string.IsNullOrWhiteSpace(currentNoteData.reminderTime) ? currentNoteData.alarmTime : currentNoteData.reminderTime);
         UpdateSelectionVisuals();
         UpdateIconSprites();
         UpdateSpeechStatus("");
@@ -122,10 +148,10 @@ public class NoteEditPanel : MonoBehaviour
 
     private void Save()
     {
-        if (currentNote == null || currentNote.Data == null)
+        NoteData data = currentNote != null ? currentNote.Data : currentNoteData;
+        if (data == null)
             return;
 
-        NoteData data = currentNote.Data;
         string noteText = GetInputValue(noteInput);
         string titleText = GetInputValue(titleInput);
         data.content = noteText;
@@ -138,7 +164,7 @@ public class NoteEditPanel : MonoBehaviour
         if (!reminderToggle.isOn || !hasSelectedReminderTime)
         {
             data.ClearReminder();
-            currentNote.SaveAndRefresh();
+            SaveCurrentData(data);
             Close();
             return;
         }
@@ -152,16 +178,17 @@ public class NoteEditPanel : MonoBehaviour
 
         data.SetReminder(ReminderManager.FormatReminderTime(selectedReminderTime), ReminderManager.RepeatNone);
 
-        currentNote.SaveAndRefresh();
+        SaveCurrentData(data);
         Close();
     }
 
     private void DeleteCurrent()
     {
-        if (currentNote == null || currentNote.Data == null)
+        NoteData data = currentNote != null ? currentNote.Data : currentNoteData;
+        if (data == null)
             return;
 
-        string noteId = currentNote.Data.id;
+        string noteId = data.id;
         Close();
         NoteManager.Instance?.RemoveNote(noteId);
     }
@@ -178,12 +205,13 @@ public class NoteEditPanel : MonoBehaviour
                 string currentText = GetInputValue(noteInput);
                 noteInput.text = string.IsNullOrWhiteSpace(currentText) ? text : currentText + " " + text;
 
-                if (currentNote != null && currentNote.Data != null)
+                NoteData data = currentNote != null ? currentNote.Data : currentNoteData;
+                if (data != null)
                 {
-                    currentNote.Data.hasTranscript = true;
-                    currentNote.Data.transcriptText = text;
-                    currentNote.Data.transcriptSource = "content";
-                    currentNote.Data.transcriptUpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                    data.hasTranscript = true;
+                    data.transcriptText = text;
+                    data.transcriptSource = "content";
+                    data.transcriptUpdatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 }
 
                 UpdateSpeechStatus("Speech added to note.");
@@ -243,7 +271,7 @@ public class NoteEditPanel : MonoBehaviour
 
     private void UpdateIconSprites()
     {
-        NoteStyleManager styleManager = currentNote == null ? null : currentNote.GetComponentInChildren<NoteStyleManager>(true);
+        NoteStyleManager styleManager = currentNote == null ? FindObjectOfType<NoteStyleManager>(true) : currentNote.GetComponentInChildren<NoteStyleManager>(true);
 
         foreach (string iconId in IconIds)
         {
@@ -444,6 +472,7 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.CreateCenterScreenNote);
         CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.OpenSelected);
         CreateButton(launcher.transform, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
+        CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(132, 40), panel.OpenHistory);
         return launcher;
     }
 
@@ -454,8 +483,26 @@ public class NoteEditPanel : MonoBehaviour
 
         Close();
         currentNote = null;
+        currentNoteData = null;
         NoteManager.Instance.ClearAllNotesAndData();
         Debug.Log("All notes and local voice files have been cleared.");
+    }
+
+    private void OpenHistory()
+    {
+        NoteHistoryPanel.EnsureExists().Open();
+    }
+
+    private void SaveCurrentData(NoteData data)
+    {
+        if (currentNote != null)
+        {
+            currentNote.SaveAndRefresh();
+            return;
+        }
+
+        data.ApplyDefaults();
+        NoteManager.Instance?.UpdateNote(data);
     }
 
     private void CreateCenterScreenNote()
