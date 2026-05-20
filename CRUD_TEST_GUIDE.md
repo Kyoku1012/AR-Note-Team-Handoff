@@ -26,7 +26,7 @@ Looking down creates a desk/floor-like note. Looking forward creates a wall/fron
 
 ## Update
 
-1. Change title, content, annotation, completed state, visibility, alarm fields, style, voice memo, or speech text.
+1. Change title, content, annotation, completed state, visibility, alarm fields, style, or speech text.
 2. Click `Save`.
 3. Reopen the note.
 4. Confirm the changes remain visible.
@@ -63,7 +63,7 @@ Saved note data is managed by `DatabaseManager` at `Application.persistentDataPa
 
 - `Create Note` creates or opens a nearby center-screen note.
 - `Edit Note` opens the selected note or first available note.
-- `Save` persists text, task state, visibility, alarm, style, voice path, and transcript metadata.
+- `Save` persists text, task state, visibility, alarm, style, and transcript metadata.
 - `Delete` removes the note from scene and saved data.
-- `Clear DB` removes saved notes and voice files.
+- `Clear DB` removes saved notes.
 - Restarting Play Mode restores saved notes unless `Clear DB` was used.

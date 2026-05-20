@@ -20,7 +20,7 @@ public static class ARNoteReadinessCheck
 
         if (issues.Count == 0)
         {
-            Debug.Log("AR Note readiness check passed. Main scene, core scripts, Vuforia placement, persistence, styling, reminders, and voice managers are present.");
+            Debug.Log("AR Note readiness check passed. Main scene, core scripts, Vuforia placement, persistence, styling, reminders, and speech input are present.");
             EditorUtility.DisplayDialog("AR Note Readiness", "Passed. The project is ready for member testing.", "OK");
             return;
         }
@@ -54,7 +54,7 @@ public static class ARNoteReadinessCheck
         CheckType<DatabaseManager>(issues, "DatabaseManager");
         CheckType<StylePanelController>(issues, "StylePanelController");
         CheckType<ReminderManager>(issues, "ReminderManager");
-        CheckType<VoiceNoteManager>(issues, "VoiceNoteManager");
+        CheckType<SpeechToTextManager>(issues, "SpeechToTextManager");
         CheckType<NoteEditPanel>(issues, "NoteEditPanel");
     }
 

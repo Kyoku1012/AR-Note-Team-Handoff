@@ -225,7 +225,7 @@ public class PlaceNote : MonoBehaviour
             noteView.Initialize(note, anchorObj, false);
         }
 
-        AlarmManager.Instance?.ScheduleAll(NoteManager.Instance.GetAllNotes());
+        ReminderManager.Instance?.RescheduleAll(NoteManager.Instance.GetAllNotes());
     }
 
     private Quaternion CalculateReadableRotation(HitTestResult result)

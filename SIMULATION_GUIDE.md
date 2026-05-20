@@ -26,7 +26,7 @@ Run `AR Note > Run Readiness Check` before Android builds or group handoff.
 - Vuforia Ground Plane behavior.
 - Camera permission flow.
 - Local notification delivery.
-- Microphone permission and voice recording.
+- Microphone permission for speech-to-text.
 - Android speech recognition.
 - Physical-world note placement accuracy.
 
@@ -36,7 +36,7 @@ Run `AR Note > Run Readiness Check` before Android builds or group handoff.
 2. Press Play.
 3. Confirm no red Console errors.
 4. Click `Create Note`.
-5. Edit title, content, annotation, completion, visibility, alarm, style, voice, and speech fields where possible.
+5. Edit title, content, annotation, completion, visibility, alarm, style, and speech fields where possible.
 6. Click `Save`.
 7. Stop Play Mode and enter Play Mode again.
 8. Confirm saved notes restore.
@@ -62,8 +62,7 @@ Run `AR Note > Run Readiness Check` before Android builds or group handoff.
 6. Edit and save task fields.
 7. Apply color, icon, and priority.
 8. Set a future alarm.
-9. Record and play a voice memo.
-10. Use speech input on title, content, or annotation.
+9. Use speech input on note content.
 11. Close and reopen the app.
 12. Confirm saved notes restore with their data and styling.
 
@@ -75,7 +74,7 @@ Run `AR Note > Run Readiness Check` before Android builds or group handoff.
 | 2 | Add, edit, delete, complete, show/hide, save/load | `NoteData.cs`, `NoteManager.cs`, `DatabaseManager.cs`, `NoteEditPanel.cs` |
 | 3 | Color, icon, priority, visual persistence | `StylePanelController.cs`, `NoteStyleManager.cs`, note prefab visuals |
 | 4 | Alarm schedule, repeat, snooze, dismiss, delete cancellation | `AlarmManager.cs`, `ReminderManager.cs`, alarm UI |
-| 5 | Voice record/play/delete, speech-to-text, transcript persistence | `VoiceNoteManager.cs`, `SpeechToTextManager.cs`, `SpeechRecognizerBridge.java`, voice/speech UI |
+| 5 | Speech-to-text and transcript persistence | `SpeechToTextManager.cs`, `SpeechRecognizerBridge.java`, speech UI |
 
 ## Common Problems
 
@@ -83,6 +82,5 @@ Run `AR Note > Run Readiness Check` before Android builds or group handoff.
 - UI taps create notes: confirm an `EventSystem` exists in `MainScene`.
 - Style buttons do nothing: place or select a note first.
 - Alarm does not fire: test on Android, set a future time, and check notification permission.
-- Voice recording does not start: allow microphone permission and test on a physical phone.
 - Speech input does not start: use Android with speech recognition available.
 - Notes do not save: check Console errors from `DatabaseManager`.

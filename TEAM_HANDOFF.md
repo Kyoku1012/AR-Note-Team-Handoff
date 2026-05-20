@@ -28,7 +28,7 @@ Use `NoteManager.UpdateNote(note)` only when there is no active `NoteView`.
 | 2 | Task CRUD and local persistence | `Assets/Scripts/Data/NoteData.cs`, `Assets/Scripts/Managers/NoteManager.cs`, `Assets/Scripts/Managers/DatabaseManager.cs`, `Assets/Scripts/UI/NoteEditPanel.cs` | `NoteManager.AddNote`, `UpdateNote`, `RemoveNote`, `GetNote`, `GetAllNotes`, `SelectNote`; `NoteData.title`, `content`, `annotation`, `isCompleted`, `isVisible` |
 | 3 | Styling | `Assets/Scripts/Styling/StylePanelController.cs`, `Assets/Scripts/Styling/NoteStyleManager.cs`, style sprites and prefab visuals | `StylePanelController.SetSelectedNote`, `NoteStyleManager.ApplyStyle`; `NoteData.colorName`, `colorLabel`, `iconId`, `priorityId` |
 | 4 | Alarms and reminders | `Assets/Scripts/Managers/AlarmManager.cs`, `Assets/Scripts/Managers/ReminderManager.cs`, alarm controls in `NoteEditPanel.cs` | `AlarmManager.ScheduleOrCancel`, `Cancel`, `Snooze`, `Dismiss`; `NoteData.hasAlarm`, `alarmTime`, `alarmRepeatRule`, `alarmStatus`, `alarmSnoozeMinutes` |
-| 5 | Voice notes, speech input, and integration checks | `Assets/Scripts/Managers/VoiceNoteManager.cs`, `Assets/Scripts/Managers/SpeechToTextManager.cs`, `Assets/Plugins/Android/SpeechRecognizerBridge.java`, voice/speech controls in `NoteEditPanel.cs` | `VoiceNoteManager.ToggleRecording`, `Play`, `DeleteVoice`; `SpeechToTextManager.StartDictation`; `NoteData.hasVoiceNote`, `voiceFilePath`, `hasTranscript`, `transcriptText`, `transcriptSource` |
+| 5 | Speech input and integration checks | `Assets/Scripts/Managers/SpeechToTextManager.cs`, `Assets/Plugins/Android/SpeechRecognizerBridge.java`, speech controls in `NoteEditPanel.cs` | `SpeechToTextManager.StartDictation`; `NoteData.hasTranscript`, `transcriptText`, `transcriptSource` |
 
 ## Independence Rules
 
@@ -37,7 +37,7 @@ Use `NoteManager.UpdateNote(note)` only when there is no active `NoteView`.
 - Do not duplicate JSON save/load logic outside `DatabaseManager`.
 - Do not create a second note registry; use `NoteManager`.
 - Do not make styling, alarm, voice, or speech scripts instantiate AR notes directly; go through `PlaceNote` or an existing `NoteView`.
-- Preserve note prefab child names used by auto-wiring: `TitleText`, `ContentText`, `CheckButton`, `EditButton`, `DeleteButton`, and `VoiceButton`.
+- Preserve note prefab child names used by auto-wiring: `TitleText`, `ContentText`, `CheckButton`, `EditButton`, `DeleteButton`, and `VoiceButton`. `VoiceButton` now starts speech-to-text input; it does not record or play saved audio.
 
 ## Safe Amendment Checklist
 

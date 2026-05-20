@@ -12,7 +12,6 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
     private TMP_Text[] contentTexts;
     private NoteStyleManager styleManager;
     private Canvas[] noteCanvases;
-    private AudioSource audioSource;
     private LineRenderer selectionFrame;
     private BoxCollider noteCollider;
 
@@ -134,20 +133,12 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         NoteManager.Instance?.RemoveNote(Data.id);
     }
 
-    public void ToggleVoiceRecording()
+    public void StartSpeechInput()
     {
         Select();
-        VoiceNoteManager.Instance?.ToggleRecording(this);
-    }
-
-    public void PlayVoice()
-    {
-        if (Data == null) return;
-
-        if (audioSource == null)
-            audioSource = gameObject.AddComponent<AudioSource>();
-
-        VoiceNoteManager.Instance?.PlayFromNote(Data, audioSource);
+        NoteEditPanel panel = NoteEditPanel.EnsureExists();
+        panel.Open(this);
+        panel.StartSpeechInput();
     }
 
     public void SaveAndRefresh()
@@ -190,7 +181,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         WireButton("CheckButton", ToggleCompleted);
         WireButton("EditButton", OpenEditor);
         WireButton("DeleteButton", DeleteNote);
-        WireButton("VoiceButton", ToggleVoiceRecording);
+        WireButton("VoiceButton", StartSpeechInput);
     }
 
     private void WireButton(string childName, UnityEngine.Events.UnityAction action)
