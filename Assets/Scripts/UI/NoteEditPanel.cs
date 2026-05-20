@@ -25,12 +25,16 @@ public class NoteEditPanel : MonoBehaviour
     private Text reminderSummaryText;
     private Toggle reminderToggle;
     private Text speechStatusText;
+    private GameObject completeCheckmark;
+    private Image completeButtonBackground;
+    private Image completeCheckboxBackground;
     private GameObject launcherRoot;
     private NoteData currentNoteData;
 
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
     private string selectedPriorityId = "";
+    private bool selectedCompleted;
     private bool hasSelectedReminderTime;
     private DateTime selectedReminderTime;
 
@@ -82,6 +86,7 @@ public class NoteEditPanel : MonoBehaviour
         selectedColorName = NormalizeChoice(data.colorName, "yellow", ColorNames);
         selectedIconId = NormalizeChoice(data.iconId, "", IconIds);
         selectedPriorityId = NormalizeChoice(data.priorityId, "", PriorityIds);
+        selectedCompleted = data.isCompleted;
         reminderToggle.isOn = data.hasReminder && !string.IsNullOrWhiteSpace(data.reminderTime);
         SetReminderTime(string.IsNullOrWhiteSpace(data.reminderTime) ? data.alarmTime : data.reminderTime);
         UpdateSelectionVisuals();
@@ -106,6 +111,7 @@ public class NoteEditPanel : MonoBehaviour
         selectedColorName = NormalizeChoice(currentNoteData.colorName, "yellow", ColorNames);
         selectedIconId = NormalizeChoice(currentNoteData.iconId, "", IconIds);
         selectedPriorityId = NormalizeChoice(currentNoteData.priorityId, "", PriorityIds);
+        selectedCompleted = currentNoteData.isCompleted;
         reminderToggle.isOn = currentNoteData.hasReminder && !string.IsNullOrWhiteSpace(currentNoteData.reminderTime);
         SetReminderTime(string.IsNullOrWhiteSpace(currentNoteData.reminderTime) ? currentNoteData.alarmTime : currentNoteData.reminderTime);
         UpdateSelectionVisuals();
@@ -161,6 +167,8 @@ public class NoteEditPanel : MonoBehaviour
         data.colorLabel = selectedColorName;
         data.iconId = selectedIconId;
         data.priorityId = selectedPriorityId;
+        data.isCompleted = selectedCompleted;
+        data.isVisible = !selectedCompleted;
         if (!reminderToggle.isOn || !hasSelectedReminderTime)
         {
             data.ClearReminder();
@@ -237,6 +245,12 @@ public class NoteEditPanel : MonoBehaviour
         UpdateSelectionVisuals();
     }
 
+    private void ToggleComplete()
+    {
+        selectedCompleted = !selectedCompleted;
+        UpdateSelectionVisuals();
+    }
+
     private void UpdateSelectionVisuals()
     {
         foreach (KeyValuePair<string, Image> swatch in colorSwatches)
@@ -246,7 +260,7 @@ public class NoteEditPanel : MonoBehaviour
                 swatch.Value.color = GetColorValue(swatch.Key, selected ? 1f : 0.72f);
 
             if (colorLabels.TryGetValue(swatch.Key, out Text label) && label != null)
-                label.text = selected ? "✓" : "";
+                label.text = selected ? "\u2713" : "";
         }
 
         foreach (KeyValuePair<string, Image> icon in iconButtons)
@@ -267,6 +281,15 @@ public class NoteEditPanel : MonoBehaviour
 
         if (panelBackground != null)
             panelBackground.color = GetPanelColor(selectedColorName);
+
+        if (completeCheckmark != null)
+            completeCheckmark.SetActive(selectedCompleted);
+
+        if (completeButtonBackground != null)
+            completeButtonBackground.color = selectedCompleted ? new Color(0.74f, 0.9f, 0.72f, 1f) : new Color(0.95f, 0.95f, 0.86f, 1f);
+
+        if (completeCheckboxBackground != null)
+            completeCheckboxBackground.color = selectedCompleted ? new Color(0.9f, 1f, 0.88f, 1f) : Color.white;
     }
 
     private void UpdateIconSprites()
@@ -332,8 +355,9 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(parent, "Mic", font, new Vector2(-12, -666), new Vector2(86, 36), DictateNote, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
         speechStatusText = CreateTopAnchoredLabel(parent, "Speech input ready", font, 13, new Vector2(120, -666), new Vector2(166, 30), Color.black);
 
-        CreateButton(parent, "Delete", font, new Vector2(-120, -724), new Vector2(96, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 16);
-        CreateButton(parent, "Save Note", font, new Vector2(100, -724), new Vector2(140, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 17);
+        CreateButton(parent, "Delete", font, new Vector2(-138, -724), new Vector2(88, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 15);
+        CreateCompleteButton(parent, font, new Vector2(-20, -724), new Vector2(118, 38));
+        CreateButton(parent, "Save Note", font, new Vector2(118, -724), new Vector2(122, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 16);
     }
 
     private void BuildColorRow(Transform parent, Font font, float y)
@@ -523,7 +547,7 @@ public class NoteEditPanel : MonoBehaviour
     {
         if (EventSystem.current != null)
         {
-            if (EventSystem.current.GetComponent<StandaloneInputModule>() == null)
+            if (EventSystem.current.GetComponent<BaseInputModule>() == null)
             {
                 EventSystem.current.gameObject.AddComponent<StandaloneInputModule>();
                 Debug.Log("StandaloneInputModule added to existing EventSystem for note UI compatibility.");
@@ -749,6 +773,80 @@ public class NoteEditPanel : MonoBehaviour
 
         CreateCenteredChildLabel(obj.transform, label, font, fontSize, textColor, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         return button;
+    }
+
+    private Button CreateCompleteButton(Transform parent, Font font, Vector2 position, Vector2 dimensions)
+    {
+        GameObject obj = new GameObject("CompleteButton");
+        obj.transform.SetParent(parent, false);
+
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+
+        Image image = obj.AddComponent<Image>();
+        image.color = new Color(0.95f, 0.95f, 0.86f, 1f);
+        completeButtonBackground = image;
+
+        Button button = obj.AddComponent<Button>();
+        RuntimeButtonActionRelay relay = obj.AddComponent<RuntimeButtonActionRelay>();
+        relay.Configure(ToggleComplete);
+        button.onClick.AddListener(relay.Invoke);
+
+        Image checkbox = CreateChildImage(obj.transform, "CompleteCheckbox", new Vector2(18, 18), Color.white);
+        checkbox.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        checkbox.rectTransform.anchoredPosition = new Vector2(18, 0);
+        checkbox.color = new Color(1f, 1f, 1f, 1f);
+        completeCheckboxBackground = checkbox;
+        Outline checkboxOutline = checkbox.gameObject.AddComponent<Outline>();
+        checkboxOutline.effectColor = new Color(0.18f, 0.2f, 0.18f, 1f);
+        checkboxOutline.effectDistance = new Vector2(1f, -1f);
+
+        completeCheckmark = CreateCheckmarkGraphic(checkbox.transform);
+        completeCheckmark.SetActive(false);
+
+        Text label = CreateCenteredChildLabel(obj.transform, "Complete", font, 14, Color.black, TextAnchor.MiddleCenter, new Vector2(28, 0), new Vector2(0, 0));
+        label.fontStyle = FontStyle.Bold;
+        return button;
+    }
+
+    private static GameObject CreateCheckmarkGraphic(Transform parent)
+    {
+        GameObject root = new GameObject("CompleteCheckmark");
+        root.transform.SetParent(parent, false);
+
+        RectTransform rect = root.AddComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.zero;
+        rect.offsetMax = Vector2.zero;
+
+        CreateCheckmarkStroke(root.transform, "ShortStroke", new Vector2(-3f, -1f), new Vector2(7f, 3f), -45f);
+        CreateCheckmarkStroke(root.transform, "LongStroke", new Vector2(3f, 1f), new Vector2(12f, 3f), 45f);
+        return root;
+    }
+
+    private static void CreateCheckmarkStroke(Transform parent, string name, Vector2 position, Vector2 dimensions, float rotation)
+    {
+        GameObject obj = new GameObject(name);
+        obj.transform.SetParent(parent, false);
+
+        RectTransform rect = obj.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+        rect.localRotation = Quaternion.Euler(0f, 0f, rotation);
+
+        Image image = obj.AddComponent<Image>();
+        image.color = new Color(0.08f, 0.45f, 0.16f, 1f);
+        image.raycastTarget = false;
     }
 
     private void SetReminderTime(string reminderTime)

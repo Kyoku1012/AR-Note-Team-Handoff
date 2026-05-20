@@ -191,13 +191,18 @@ public class NoteHistoryPanel : MonoBehaviour
 
     private void CreateNoteRow(Transform parent, Font font, NoteStyleManager styleManager, NoteData note)
     {
+        bool isCompleted = note != null && note.isCompleted;
+        Color rowBackgroundColor = isCompleted ? new Color(0.88f, 0.89f, 0.86f, 1f) : Color.white;
+        Color primaryTextColor = isCompleted ? new Color(0.42f, 0.44f, 0.42f, 1f) : new Color(0.09f, 0.11f, 0.1f, 1f);
+        Color secondaryTextColor = isCompleted ? new Color(0.58f, 0.6f, 0.57f, 1f) : new Color(0.42f, 0.46f, 0.43f, 1f);
+
         GameObject row = new GameObject("HistoryNoteRow");
         row.transform.SetParent(parent, false);
         RectTransform rect = row.AddComponent<RectTransform>();
         rect.sizeDelta = new Vector2(382, 92);
 
         Image background = row.AddComponent<Image>();
-        background.color = Color.white;
+        background.color = rowBackgroundColor;
 
         Button button = row.AddComponent<Button>();
         RuntimeButtonActionRelay relay = row.AddComponent<RuntimeButtonActionRelay>();
@@ -208,39 +213,41 @@ public class NoteHistoryPanel : MonoBehaviour
         layout.preferredHeight = 92;
         layout.minHeight = 92;
 
-        Image colorStrip = CreateChildBlock(row.transform, "PriorityStrip", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 76), GetPriorityColor(note.priorityId));
+        Image colorStrip = CreateChildBlock(row.transform, "PriorityStrip", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 76), isCompleted ? new Color(0.62f, 0.64f, 0.61f, 1f) : GetPriorityColor(note.priorityId));
         colorStrip.rectTransform.anchoredPosition = new Vector2(10, 0);
 
         Sprite iconSprite = GetIconSprite(styleManager, note.iconId);
-        Image icon = CreateChildBlock(row.transform, "NoteIcon", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(38, 38), new Color(0.93f, 0.95f, 0.92f, 1f));
+        Image icon = CreateChildBlock(row.transform, "NoteIcon", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(38, 38), isCompleted ? new Color(0.78f, 0.8f, 0.76f, 1f) : new Color(0.93f, 0.95f, 0.92f, 1f));
         icon.rectTransform.anchoredPosition = new Vector2(38, 0);
         icon.sprite = iconSprite;
         icon.preserveAspect = true;
-        Text iconFallback = CreateChildLabel(icon.transform, GetIconFallbackLabel(note.iconId), font, 10, new Color(0.22f, 0.25f, 0.23f, 1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+        if (iconSprite != null && isCompleted)
+            icon.color = new Color(0.72f, 0.74f, 0.7f, 1f);
+        Text iconFallback = CreateChildLabel(icon.transform, GetIconFallbackLabel(note.iconId), font, 10, isCompleted ? secondaryTextColor : new Color(0.22f, 0.25f, 0.23f, 1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         iconFallback.gameObject.SetActive(iconSprite == null);
 
-        Text title = CreateChildLabel(row.transform, GetDisplayTitle(note), font, 17, new Color(0.09f, 0.11f, 0.1f, 1f), TextAnchor.MiddleLeft, new Vector2(68, 42), new Vector2(-96, -20));
+        Text title = CreateChildLabel(row.transform, GetDisplayTitle(note), font, 17, primaryTextColor, TextAnchor.MiddleLeft, new Vector2(68, 42), new Vector2(-96, -20));
         title.fontStyle = FontStyle.Bold;
         title.horizontalOverflow = HorizontalWrapMode.Wrap;
         title.verticalOverflow = VerticalWrapMode.Truncate;
 
-        Text reminder = CreateChildLabel(row.transform, GetReminderText(note), font, 12, new Color(0.42f, 0.46f, 0.43f, 1f), TextAnchor.MiddleLeft, new Vector2(68, 16), new Vector2(-96, -48));
+        Text reminder = CreateChildLabel(row.transform, GetReminderText(note), font, 12, secondaryTextColor, TextAnchor.MiddleLeft, new Vector2(68, 16), new Vector2(-96, -48));
         reminder.gameObject.SetActive(!string.IsNullOrWhiteSpace(reminder.text));
 
-        Image priorityBadge = CreateChildBlock(row.transform, "PriorityBadge", new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(74, 30), GetPriorityBadgeColor(note.priorityId));
+        Image priorityBadge = CreateChildBlock(row.transform, "PriorityBadge", new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(74, 30), isCompleted ? new Color(0.64f, 0.66f, 0.63f, 0.88f) : GetPriorityBadgeColor(note.priorityId));
         priorityBadge.rectTransform.anchoredPosition = new Vector2(-44, 16);
         Sprite prioritySprite = GetPrioritySprite(styleManager, note.priorityId);
         if (prioritySprite != null)
         {
             priorityBadge.sprite = prioritySprite;
             priorityBadge.preserveAspect = true;
-            priorityBadge.color = Color.white;
+            priorityBadge.color = isCompleted ? new Color(0.74f, 0.76f, 0.72f, 1f) : Color.white;
         }
 
-        Text priorityText = CreateChildLabel(priorityBadge.transform, ToTitleOrNone(note.priorityId), font, 12, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+        Text priorityText = CreateChildLabel(priorityBadge.transform, ToTitleOrNone(note.priorityId), font, 12, isCompleted ? new Color(0.88f, 0.89f, 0.86f, 1f) : Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
         priorityText.gameObject.SetActive(prioritySprite == null);
 
-        CreateChildLabel(row.transform, ">", font, 24, new Color(0.44f, 0.48f, 0.45f, 1f), TextAnchor.MiddleCenter, new Vector2(348, 12), new Vector2(-8, -48));
+        CreateChildLabel(row.transform, ">", font, 24, isCompleted ? secondaryTextColor : new Color(0.44f, 0.48f, 0.45f, 1f), TextAnchor.MiddleCenter, new Vector2(348, 12), new Vector2(-8, -48));
     }
 
     private void UpdateTabs()
@@ -360,7 +367,7 @@ public class NoteHistoryPanel : MonoBehaviour
     {
         if (EventSystem.current != null)
         {
-            if (EventSystem.current.GetComponent<StandaloneInputModule>() == null)
+            if (EventSystem.current.GetComponent<BaseInputModule>() == null)
                 EventSystem.current.gameObject.AddComponent<StandaloneInputModule>();
             return;
         }

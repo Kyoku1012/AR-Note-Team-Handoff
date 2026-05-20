@@ -77,7 +77,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         EnsureSelectionFrame();
 
         if (selectionFrame != null)
-            selectionFrame.gameObject.SetActive(isSelected);
+            selectionFrame.gameObject.SetActive(isSelected && (Data == null || Data.isVisible));
     }
 
     public void RefreshFromData()
