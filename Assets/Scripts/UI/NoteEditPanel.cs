@@ -62,6 +62,8 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private GameObject launcherRoot;
 
     private GameObject deleteAllNotesConfirmDialog;
+    private GameObject reminderCheckmark;
+    private Image reminderCheckboxBackground;
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
     private string selectedPriorityId = "";
@@ -353,6 +355,8 @@ public class NoteEditPanel : MonoBehaviour
 
         if (completeCheckboxBackground != null)
             completeCheckboxBackground.color = selectedCompleted ? new Color(0.9f, 1f, 0.88f, 1f) : Color.white;
+
+        UpdateReminderToggleVisuals();
     }
 
     private void UpdateIconSprites()
@@ -418,9 +422,14 @@ public class NoteEditPanel : MonoBehaviour
         ConfigureLauncherButtons();
 
         if (reminderToggle != null)
-            reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
+            reminderToggle.onValueChanged.AddListener(_ =>
+            {
+                UpdateReminderSummary();
+                UpdateReminderToggleVisuals();
+            });
 
         ConfigureEditPanelProductStyle();
+        UpdateReminderToggleVisuals();
         prefabUiInitialized = true;
     }
 
@@ -621,10 +630,10 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(parent, "OK", font, new Vector2(185, -28), new Vector2(54, 38), Save, new Color(0f, 0f, 0f, 0f), Color.white, 20);
 
         CreateRowLabel(parent, "Title", font, -102);
-        titleInput = CreateInput(parent, "", font, new Vector2(72, -102), new Vector2(280, 36), false, 80);
+        titleInput = CreateInput(parent, "", font, new Vector2(62, -102), new Vector2(260, 36), false, 80);
 
         CreateRowLabel(parent, "Note", font, -162);
-        noteInput = CreateInput(parent, "", font, new Vector2(72, -168), new Vector2(280, 86), true, 4000);
+        noteInput = CreateInput(parent, "", font, new Vector2(62, -168), new Vector2(260, 86), true, 4000);
 
         CreateRowLabel(parent, "Color", font, -250);
         BuildColorRow(parent, font, -250);
@@ -636,12 +645,16 @@ public class NoteEditPanel : MonoBehaviour
         BuildPriorityRow(parent, font, -366);
 
         CreateRowLabel(parent, "Reminder", font, -426);
-        reminderSummaryText = CreateTopAnchoredLabel(parent, "No time set", font, 16, new Vector2(64, -426), new Vector2(238, 34), Color.black);
+        reminderSummaryText = CreateTopAnchoredLabel(parent, "No time set", font, 16, new Vector2(54, -426), new Vector2(218, 34), Color.black);
         BuildDateTimePicker(parent, font, -498);
         CreateButton(parent, "Now", font, new Vector2(-34, -578), new Vector2(70, 30), SetReminderNow, new Color(1f, 0.99f, 0.88f, 1f), Color.black, 13);
         CreateButton(parent, "Clear", font, new Vector2(50, -578), new Vector2(70, 30), ClearReminderTime, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.7f, 0.1f, 0.1f, 1f), 13);
-        reminderToggle = CreateToggle(parent, "Reminder", font, new Vector2(72, -616));
-        reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
+        reminderToggle = CreateToggle(parent, "Set Reminder", font, new Vector2(62, -616));
+        reminderToggle.onValueChanged.AddListener(_ =>
+        {
+            UpdateReminderSummary();
+            UpdateReminderToggleVisuals();
+        });
 
         CreateRowLabel(parent, "Speech", font, -666);
         CreateButton(parent, "Mic", font, new Vector2(-12, -666), new Vector2(86, 36), DictateNote, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
@@ -1013,6 +1026,10 @@ public class NoteEditPanel : MonoBehaviour
     private void ConfigureEditPanelProductStyle()
     {
         StylePanelFrame();
+        SetRect(titleInput, new Vector2(62, -102), new Vector2(260, 36));
+        SetRect(noteInput, new Vector2(62, -168), new Vector2(260, 86));
+        SetRect(reminderSummaryText, new Vector2(54, -426), new Vector2(218, 34));
+        SetRect(reminderToggle, new Vector2(62, -616), new Vector2(260, 34));
         StyleInputField(titleInput);
         StyleInputField(noteInput);
 
@@ -1041,6 +1058,22 @@ public class NoteEditPanel : MonoBehaviour
             StyleEditPanelText(label);
 
         StyleToggle(reminderToggle);
+    }
+
+    private static void SetRect(Component component, Vector2 position, Vector2 dimensions)
+    {
+        if (component == null)
+            return;
+
+        RectTransform rect = component.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
     }
 
     private enum EditPanelButtonRole
@@ -1208,18 +1241,97 @@ public class NoteEditPanel : MonoBehaviour
         }
     }
 
-    private static void StyleToggle(Toggle toggle)
+    private void StyleToggle(Toggle toggle)
     {
         if (toggle == null)
             return;
 
+        HideChild(toggle.transform, "SwitchTrack");
+        HideChild(toggle.transform, "SwitchOn");
+        EnsureReminderCheckbox(toggle);
+
         Text label = toggle.GetComponentInChildren<Text>(true);
         if (label != null)
         {
+            label.text = "Set Reminder";
             label.color = new Color(0.12f, 0.16f, 0.22f, 1f);
             label.fontSize = 15;
             label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+
+            RectTransform labelRect = label.GetComponent<RectTransform>();
+            if (labelRect != null)
+            {
+                labelRect.offsetMin = new Vector2(30, 0);
+                labelRect.offsetMax = Vector2.zero;
+            }
         }
+
+        Image background = toggle.GetComponent<Image>();
+        if (background != null)
+            background.color = new Color(0.94f, 0.97f, 0.95f, 1f);
+
+        Outline outline = toggle.GetComponent<Outline>();
+        if (outline == null)
+            outline = toggle.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.48f, 0.62f, 0.54f, 1f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        toggle.targetGraphic = background;
+        toggle.graphic = null;
+        UpdateReminderToggleVisuals();
+    }
+
+    private void EnsureReminderCheckbox(Toggle toggle)
+    {
+        if (toggle == null)
+            return;
+
+        Transform checkboxTransform = toggle.transform.Find("ReminderCheckbox");
+        Image checkbox = checkboxTransform == null ? null : checkboxTransform.GetComponent<Image>();
+        if (checkbox == null)
+        {
+            checkbox = CreateChildImage(toggle.transform, "ReminderCheckbox", new Vector2(18, 18), Color.white);
+            checkbox.raycastTarget = false;
+            Outline outline = checkbox.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.18f, 0.2f, 0.18f, 1f);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+
+        checkbox.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        checkbox.rectTransform.anchoredPosition = new Vector2(18, 0);
+        checkbox.rectTransform.sizeDelta = new Vector2(18, 18);
+        reminderCheckboxBackground = checkbox;
+
+        Transform checkmarkTransform = checkbox.transform.Find("ReminderCheckmark");
+        reminderCheckmark = checkmarkTransform == null ? CreateCheckmarkGraphic(checkbox.transform) : checkmarkTransform.gameObject;
+        reminderCheckmark.name = "ReminderCheckmark";
+    }
+
+    private void UpdateReminderToggleVisuals()
+    {
+        if (reminderToggle == null)
+            return;
+
+        if (reminderCheckboxBackground == null || reminderCheckmark == null)
+            EnsureReminderCheckbox(reminderToggle);
+
+        bool isOn = reminderToggle.isOn;
+        if (reminderCheckmark != null)
+            reminderCheckmark.SetActive(isOn);
+
+        if (reminderCheckboxBackground != null)
+            reminderCheckboxBackground.color = isOn ? new Color(0.9f, 1f, 0.88f, 1f) : Color.white;
+    }
+
+    private static void HideChild(Transform parent, string childName)
+    {
+        Transform child = parent == null ? null : parent.Find(childName);
+        if (child != null)
+            child.gameObject.SetActive(false);
     }
 
     private void ShowDeleteAllNotesConfirmDialog()
@@ -1429,30 +1541,20 @@ public class NoteEditPanel : MonoBehaviour
 
         Toggle toggle = obj.AddComponent<Toggle>();
         toggle.targetGraphic = background;
-        GameObject track = new GameObject("SwitchTrack");
-        track.transform.SetParent(obj.transform, false);
-        RectTransform trackRect = track.AddComponent<RectTransform>();
-        trackRect.anchorMin = new Vector2(1f, 0.5f);
-        trackRect.anchorMax = new Vector2(1f, 0.5f);
-        trackRect.sizeDelta = new Vector2(58, 30);
-        trackRect.anchoredPosition = new Vector2(-30, 0);
-        Image trackImage = track.AddComponent<Image>();
-        trackImage.color = new Color(0.82f, 0.82f, 0.76f, 1f);
-        trackImage.raycastTarget = false;
 
-        GameObject checkmark = new GameObject("SwitchOn");
-        checkmark.transform.SetParent(obj.transform, false);
-        RectTransform checkRect = checkmark.AddComponent<RectTransform>();
-        checkRect.anchorMin = new Vector2(1f, 0.5f);
-        checkRect.anchorMax = new Vector2(1f, 0.5f);
-        checkRect.sizeDelta = new Vector2(58, 30);
-        checkRect.anchoredPosition = new Vector2(-30, 0);
-        Image checkImage = checkmark.AddComponent<Image>();
-        checkImage.color = new Color(0.24f, 0.76f, 0.34f, 1f);
-        checkImage.raycastTarget = false;
-        toggle.graphic = checkImage;
+        Image checkbox = CreateChildImage(obj.transform, "ReminderCheckbox", new Vector2(18, 18), Color.white);
+        checkbox.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        checkbox.rectTransform.anchoredPosition = new Vector2(18, 0);
+        Outline checkboxOutline = checkbox.gameObject.AddComponent<Outline>();
+        checkboxOutline.effectColor = new Color(0.18f, 0.2f, 0.18f, 1f);
+        checkboxOutline.effectDistance = new Vector2(1f, -1f);
+        GameObject checkmark = CreateCheckmarkGraphic(checkbox.transform);
+        checkmark.name = "ReminderCheckmark";
+        checkmark.SetActive(false);
 
-        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleLeft, new Vector2(0, 0), new Vector2(-54, 0));
+        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleCenter, new Vector2(30, 0), Vector2.zero);
         return toggle;
     }
 
