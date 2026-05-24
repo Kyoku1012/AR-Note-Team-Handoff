@@ -789,7 +789,8 @@ public class NoteEditPanel : MonoBehaviour
         panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -132), new Vector2(120, 40), panel.OpenSelected);
         panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(150, 40), panel.OpenHistory);
         panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(160, -88), new Vector2(150, 40), panel.RequestClearAllData);
-        panel.SetTestMenuOpen(false);
+        panel.launcherRoot = launcher;
+        panel.ConfigureLauncherButtons();
         return launcher;
     }
 
@@ -930,9 +931,65 @@ public class NoteEditPanel : MonoBehaviour
             rect.sizeDelta = dimensions;
         }
 
+        ApplyLauncherButtonStyle(button, label);
+    }
+
+    private static void ApplyLauncherButtonStyle(Button button, string label)
+    {
+        if (button == null)
+            return;
+
+        bool isPrimary = label == "Create Note";
+        bool isDanger = label == "Delete All Notes";
+
+        Color backgroundColor = isPrimary
+            ? new Color(0.16f, 0.38f, 0.74f, 1f)
+            : isDanger
+                ? new Color(1f, 0.96f, 0.95f, 1f)
+                : new Color(0.97f, 0.98f, 0.99f, 1f);
+
+        Color borderColor = isPrimary
+            ? new Color(0.11f, 0.28f, 0.6f, 1f)
+            : isDanger
+                ? new Color(0.82f, 0.26f, 0.22f, 1f)
+                : new Color(0.72f, 0.76f, 0.82f, 1f);
+
+        Color textColor = isPrimary
+            ? Color.white
+            : isDanger
+                ? new Color(0.62f, 0.12f, 0.1f, 1f)
+                : new Color(0.12f, 0.16f, 0.22f, 1f);
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = backgroundColor;
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline == null)
+            outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = isPrimary ? new Color(0.92f, 0.96f, 1f, 1f) : new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = isPrimary ? new Color(0.78f, 0.87f, 1f, 1f) : new Color(0.9f, 0.93f, 0.96f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.8f, 0.82f, 0.86f, 0.55f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
         Text labelText = button.GetComponentInChildren<Text>(true);
         if (labelText != null)
+        {
             labelText.text = label;
+            labelText.color = textColor;
+            labelText.fontSize = isDanger ? 14 : 15;
+            labelText.fontStyle = FontStyle.Bold;
+            labelText.alignment = TextAnchor.MiddleCenter;
+        }
     }
 
     private void ToggleTestMenu()
