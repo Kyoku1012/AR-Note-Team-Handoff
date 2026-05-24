@@ -32,6 +32,7 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Button micButton;
     [SerializeField] private Button createNoteButton;
     [SerializeField] private Button editNoteButton;
+    [SerializeField] private Button testMenuButton;
     [SerializeField] private Button clearDbButton;
     [SerializeField] private Button noteHistoryButton;
     [SerializeField] private Button[] colorButtons;
@@ -60,6 +61,7 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Image completeCheckboxBackground;
     [SerializeField] private GameObject launcherRoot;
 
+    private GameObject deleteAllNotesConfirmDialog;
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
     private string selectedPriorityId = "";
@@ -67,6 +69,7 @@ public class NoteEditPanel : MonoBehaviour
     private bool hasSelectedReminderTime;
     private DateTime selectedReminderTime;
     private bool prefabUiInitialized;
+    private bool testMenuOpen;
     private float lastSpeechTapRealtime = -1f;
 
     private static readonly string[] ColorNames = { "yellow", "pink", "blue", "green" };
@@ -412,6 +415,7 @@ public class NoteEditPanel : MonoBehaviour
         BindSerializedCollections();
         BindSerializedButtons();
         BindSerializedPickerControls();
+        ConfigureLauncherButtons();
 
         if (reminderToggle != null)
             reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
@@ -456,7 +460,8 @@ public class NoteEditPanel : MonoBehaviour
         ConfigureButton(micButton, DictateNote);
         ConfigureButton(createNoteButton, CreateCenterScreenNote);
         ConfigureButton(editNoteButton, OpenSelected);
-        ConfigureButton(clearDbButton, ClearAllData);
+        ConfigureButton(testMenuButton, ToggleTestMenu);
+        ConfigureButton(clearDbButton, RequestClearAllData);
         ConfigureButton(noteHistoryButton, OpenHistory);
 
         ConfigureChoiceButtons(colorButtons, ColorNames, SelectColor);
@@ -779,11 +784,24 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
-        CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.CreateCenterScreenNote);
-        CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.OpenSelected);
-        CreateButton(launcher.transform, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
-        CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(132, 40), panel.OpenHistory);
+        panel.testMenuButton = CreateButton(launcher.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), panel.ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+        panel.createNoteButton = CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -84), new Vector2(120, 40), panel.CreateCenterScreenNote);
+        panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -132), new Vector2(120, 40), panel.OpenSelected);
+        panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(150, 40), panel.OpenHistory);
+        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(160, -88), new Vector2(150, 40), panel.RequestClearAllData);
+        panel.SetTestMenuOpen(false);
         return launcher;
+    }
+
+    private void RequestClearAllData()
+    {
+        ShowDeleteAllNotesConfirmDialog();
+    }
+
+    private void ConfirmClearAllData()
+    {
+        HideDeleteAllNotesConfirmDialog();
+        ClearAllData();
     }
 
     private void ClearAllData()
@@ -849,8 +867,143 @@ public class NoteEditPanel : MonoBehaviour
 
     private void SetLauncherVisible(bool visible)
     {
+        if (visible)
+            SetTestMenuOpen(false);
+        else
+            HideDeleteAllNotesConfirmDialog();
+
         if (launcherRoot != null)
             launcherRoot.SetActive(visible);
+    }
+
+    private void ConfigureLauncherButtons()
+    {
+        if (launcherRoot == null)
+            return;
+
+        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        if (testMenuButton == null)
+            testMenuButton = FindLauncherButton("Test MenuButton");
+
+        if (testMenuButton == null)
+            testMenuButton = CreateButton(launcherRoot.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+
+        ConfigureButton(testMenuButton, ToggleTestMenu);
+        ConfigureButton(clearDbButton, RequestClearAllData);
+
+        ConfigureLauncherButton(createNoteButton, "Create Note", new Vector2(-230, -84), new Vector2(120, 40));
+        ConfigureLauncherButton(editNoteButton, "Edit Note", new Vector2(-230, -132), new Vector2(120, 40));
+        ConfigureLauncherButton(noteHistoryButton, "Note History", new Vector2(160, -40), new Vector2(150, 40));
+        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(160, -88), new Vector2(150, 40));
+        ConfigureLauncherButton(testMenuButton, "Test Menu", new Vector2(-230, -40), new Vector2(150, 40));
+        SetTestMenuOpen(false);
+    }
+
+    private Button FindLauncherButton(string buttonName)
+    {
+        if (launcherRoot == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        Button[] buttons = launcherRoot.GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button != null && button.name == buttonName)
+                return button;
+        }
+
+        return null;
+    }
+
+    private static void ConfigureLauncherButton(Button button, string label, Vector2 position, Vector2 dimensions)
+    {
+        if (button == null)
+            return;
+
+        RectTransform rect = button.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = dimensions;
+        }
+
+        Text labelText = button.GetComponentInChildren<Text>(true);
+        if (labelText != null)
+            labelText.text = label;
+    }
+
+    private void ToggleTestMenu()
+    {
+        SetTestMenuOpen(!testMenuOpen);
+    }
+
+    private void SetTestMenuOpen(bool isOpen)
+    {
+        testMenuOpen = isOpen;
+
+        if (createNoteButton != null)
+            createNoteButton.gameObject.SetActive(testMenuOpen);
+
+        if (editNoteButton != null)
+            editNoteButton.gameObject.SetActive(testMenuOpen);
+    }
+
+    private void ShowDeleteAllNotesConfirmDialog()
+    {
+        if (launcherRoot == null)
+            return;
+
+        if (deleteAllNotesConfirmDialog == null)
+            deleteAllNotesConfirmDialog = CreateDeleteAllNotesConfirmDialog(launcherRoot.transform);
+
+        deleteAllNotesConfirmDialog.SetActive(true);
+    }
+
+    private void HideDeleteAllNotesConfirmDialog()
+    {
+        if (deleteAllNotesConfirmDialog != null)
+            deleteAllNotesConfirmDialog.SetActive(false);
+    }
+
+    private GameObject CreateDeleteAllNotesConfirmDialog(Transform parent)
+    {
+        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        GameObject overlay = new GameObject("DeleteAllNotesConfirmDialog");
+        overlay.transform.SetParent(parent, false);
+
+        RectTransform overlayRect = overlay.AddComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image dim = overlay.AddComponent<Image>();
+        dim.color = new Color(0f, 0f, 0f, 0.35f);
+
+        GameObject dialog = new GameObject("Dialog");
+        dialog.transform.SetParent(overlay.transform, false);
+
+        RectTransform dialogRect = dialog.AddComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dialogRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dialogRect.pivot = new Vector2(0.5f, 0.5f);
+        dialogRect.anchoredPosition = Vector2.zero;
+        dialogRect.sizeDelta = new Vector2(320, 170);
+
+        Image panelImage = dialog.AddComponent<Image>();
+        panelImage.color = new Color(0.98f, 0.97f, 0.9f, 1f);
+
+        CreateTopAnchoredLabel(dialog.transform, "Delete all notes?", font, 20, new Vector2(0, -38), new Vector2(280, 34), Color.black);
+        CreateTopAnchoredLabel(dialog.transform, "This cannot be undone.", font, 15, new Vector2(0, -76), new Vector2(280, 28), new Color(0.35f, 0.12f, 0.12f, 1f));
+        CreateButton(dialog.transform, "Cancel", font, new Vector2(-78, -126), new Vector2(112, 38), HideDeleteAllNotesConfirmDialog, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
+        CreateButton(dialog.transform, "Delete", font, new Vector2(78, -126), new Vector2(112, 38), ConfirmClearAllData, new Color(0.72f, 0.12f, 0.12f, 1f), Color.white, 15);
+
+        overlay.SetActive(false);
+        return overlay;
     }
 
     private static Text CreateRowLabel(Transform parent, string text, Font font, float y)
