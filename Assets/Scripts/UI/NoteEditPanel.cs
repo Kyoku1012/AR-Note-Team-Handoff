@@ -42,8 +42,10 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Image serializedPanelBackground;
     [SerializeField] private Image[] colorSwatchImages;
     [SerializeField] private Image[] iconButtonImages;
+    [SerializeField] private Image[] iconSpriteImages;
     [SerializeField] private Image[] priorityButtonImages;
     [SerializeField] private Text[] colorCheckLabels;
+    [SerializeField] private Text[] iconFallbackLabelsSerialized;
     [SerializeField] private Text[] pickerPreviousLabels;
     [SerializeField] private Text[] pickerCurrentLabels;
     [SerializeField] private Text[] pickerNextLabels;
@@ -402,10 +404,12 @@ public class NoteEditPanel : MonoBehaviour
         RegisterImages(colorSwatches, ColorNames, colorSwatchImages);
         RegisterImages(priorityButtons, PriorityIds, priorityButtonImages);
         RegisterImages(iconButtons, IconIds, iconButtonImages);
+        RegisterImages(iconSprites, IconIds, iconSpriteImages);
         RegisterTexts(colorLabels, ColorNames, colorCheckLabels);
+        RegisterTexts(iconFallbackLabels, IconIds, iconFallbackLabelsSerialized);
         RegisterPickerLabels();
 
-        if (iconButtonsSerialized != null)
+        if (iconFallbackLabels.Count == 0 && iconButtonsSerialized != null)
         {
             for (int i = 0; i < iconButtonsSerialized.Length && i < IconIds.Length; i++)
             {
