@@ -2613,6 +2613,14 @@ PrefabInstance:
       propertyPath: m_RootOrder
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 7214027111003010303, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 7214027111003010303, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.75
+      objectReference: {fileID: 0}
     - target: {fileID: 8628156481248120855, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
       propertyPath: m_Name
       value: NoteEditPanel

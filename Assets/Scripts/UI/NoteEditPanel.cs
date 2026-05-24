@@ -67,11 +67,13 @@ public class NoteEditPanel : MonoBehaviour
     private bool hasSelectedReminderTime;
     private DateTime selectedReminderTime;
     private bool prefabUiInitialized;
+    private float lastSpeechTapRealtime = -1f;
 
     private static readonly string[] ColorNames = { "yellow", "pink", "blue", "green" };
     private static readonly string[] IconIds = { "star", "finish", "inprocess", "reminder", "work", "study", "shopping" };
     private static readonly string[] PriorityIds = { "low", "medium", "high" };
     private static readonly string[] MonthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    private const float SpeechTapDebounceSeconds = 0.6f;
 
     private void Awake()
     {
@@ -246,8 +248,26 @@ public class NoteEditPanel : MonoBehaviour
         if (noteInput == null)
             return;
 
-        UpdateSpeechStatus("Listening...");
-        SpeechToTextManager.Instance?.StartDictation(
+        if (Time.unscaledTime - lastSpeechTapRealtime < SpeechTapDebounceSeconds)
+            return;
+
+        lastSpeechTapRealtime = Time.unscaledTime;
+
+        if (SpeechToTextManager.Instance == null)
+        {
+            UpdateSpeechStatus("Speech input is not ready. Reopen the scene and try again.");
+            return;
+        }
+
+        if (SpeechToTextManager.Instance.IsListening)
+        {
+            SpeechToTextManager.Instance.StopDictation();
+            UpdateSpeechStatus("Speech input stopped.");
+            return;
+        }
+
+        UpdateSpeechStatus("Listening... tap Mic again to finish.");
+        SpeechToTextManager.Instance.StartDictation(
             text =>
             {
                 string currentText = GetInputValue(noteInput);
@@ -539,6 +559,7 @@ public class NoteEditPanel : MonoBehaviour
             relay = button.gameObject.AddComponent<RuntimeButtonActionRelay>();
 
         relay.Configure(action);
+        button.onClick.RemoveListener(relay.Invoke);
         button.onClick.AddListener(relay.Invoke);
     }
 
