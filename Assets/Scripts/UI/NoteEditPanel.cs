@@ -19,17 +19,44 @@ public class NoteEditPanel : MonoBehaviour
     private readonly Dictionary<string, Text[]> pickerOptionLabels = new Dictionary<string, Text[]>();
 
     private NoteView currentNote;
-    private Image panelBackground;
-    private InputField noteInput;
-    private InputField titleInput;
-    private Text reminderSummaryText;
-    private Toggle reminderToggle;
-    private Text speechStatusText;
-    private GameObject completeCheckmark;
-    private Image completeButtonBackground;
-    private Image completeCheckboxBackground;
-    private GameObject launcherRoot;
     private NoteData currentNoteData;
+
+    [Header("Prefab Actions")]
+    [SerializeField] private Button closeButton;
+    [SerializeField] private Button okButton;
+    [SerializeField] private Button deleteButton;
+    [SerializeField] private Button completeButton;
+    [SerializeField] private Button saveButton;
+    [SerializeField] private Button nowButton;
+    [SerializeField] private Button clearReminderButton;
+    [SerializeField] private Button micButton;
+    [SerializeField] private Button createNoteButton;
+    [SerializeField] private Button editNoteButton;
+    [SerializeField] private Button clearDbButton;
+    [SerializeField] private Button noteHistoryButton;
+    [SerializeField] private Button[] colorButtons;
+    [SerializeField] private Button[] iconButtonsSerialized;
+    [SerializeField] private Button[] priorityButtonsSerialized;
+
+    [Header("Prefab Visuals")]
+    [SerializeField] private Image serializedPanelBackground;
+    [SerializeField] private Image[] colorSwatchImages;
+    [SerializeField] private Image[] iconButtonImages;
+    [SerializeField] private Image[] priorityButtonImages;
+    [SerializeField] private Text[] colorCheckLabels;
+    [SerializeField] private Text[] pickerPreviousLabels;
+    [SerializeField] private Text[] pickerCurrentLabels;
+    [SerializeField] private Text[] pickerNextLabels;
+    [SerializeField] private Image panelBackground;
+    [SerializeField] private InputField noteInput;
+    [SerializeField] private InputField titleInput;
+    [SerializeField] private Text reminderSummaryText;
+    [SerializeField] private Toggle reminderToggle;
+    [SerializeField] private Text speechStatusText;
+    [SerializeField] private GameObject completeCheckmark;
+    [SerializeField] private Image completeButtonBackground;
+    [SerializeField] private Image completeCheckboxBackground;
+    [SerializeField] private GameObject launcherRoot;
 
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
@@ -37,17 +64,26 @@ public class NoteEditPanel : MonoBehaviour
     private bool selectedCompleted;
     private bool hasSelectedReminderTime;
     private DateTime selectedReminderTime;
+    private bool prefabUiInitialized;
 
     private static readonly string[] ColorNames = { "yellow", "pink", "blue", "green" };
     private static readonly string[] IconIds = { "star", "finish", "inprocess", "reminder", "work", "study", "shopping" };
     private static readonly string[] PriorityIds = { "low", "medium", "high" };
     private static readonly string[] MonthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
 
+    private void Awake()
+    {
+        InitializePrefabUiIfAvailable();
+    }
+
     public static NoteEditPanel EnsureExists()
     {
         NoteEditPanel existing = FindObjectOfType<NoteEditPanel>(true);
         if (existing != null)
+        {
+            existing.InitializePrefabUiIfAvailable();
             return existing;
+        }
 
         GameObject canvasObject = new GameObject("RuntimeNoteEditCanvas");
         Canvas canvas = canvasObject.AddComponent<Canvas>();
@@ -68,9 +104,10 @@ public class NoteEditPanel : MonoBehaviour
 
     public void Open(NoteView noteView)
     {
+        EnsureUiReady();
         currentNote = noteView;
         currentNoteData = currentNote == null ? null : currentNote.Data;
-        if (currentNote == null || currentNote.Data == null)
+        if (currentNote == null || currentNote.Data == null || !HasRequiredUiReferences())
             return;
 
         NoteManager.Instance?.SelectNote(currentNote);
@@ -99,9 +136,10 @@ public class NoteEditPanel : MonoBehaviour
 
     public void Open(NoteData noteData)
     {
+        EnsureUiReady();
         currentNote = null;
         currentNoteData = noteData;
-        if (currentNoteData == null)
+        if (currentNoteData == null || !HasRequiredUiReferences())
             return;
 
         currentNoteData.ApplyDefaults();
@@ -317,6 +355,229 @@ public class NoteEditPanel : MonoBehaviour
             return;
 
         speechStatusText.text = string.IsNullOrWhiteSpace(message) ? "Speech input ready" : message;
+    }
+
+    private void EnsureUiReady()
+    {
+        InitializePrefabUiIfAvailable();
+
+        if (HasRequiredUiReferences())
+            return;
+
+        if (transform.childCount == 0)
+        {
+            panelBackground = GetComponent<Image>();
+            BuildUi(transform);
+        }
+    }
+
+    private bool HasRequiredUiReferences()
+    {
+        return noteInput != null
+            && titleInput != null
+            && reminderToggle != null
+            && reminderSummaryText != null;
+    }
+
+    private void InitializePrefabUiIfAvailable()
+    {
+        if (prefabUiInitialized)
+            return;
+
+        if (serializedPanelBackground != null && panelBackground == null)
+            panelBackground = serializedPanelBackground;
+
+        BindSerializedCollections();
+        BindSerializedButtons();
+        BindSerializedPickerControls();
+
+        if (reminderToggle != null)
+            reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
+
+        prefabUiInitialized = true;
+    }
+
+    private void BindSerializedCollections()
+    {
+        RegisterImages(colorSwatches, ColorNames, colorSwatchImages);
+        RegisterImages(priorityButtons, PriorityIds, priorityButtonImages);
+        RegisterImages(iconButtons, IconIds, iconButtonImages);
+        RegisterTexts(colorLabels, ColorNames, colorCheckLabels);
+        RegisterPickerLabels();
+
+        if (iconButtonsSerialized != null)
+        {
+            for (int i = 0; i < iconButtonsSerialized.Length && i < IconIds.Length; i++)
+            {
+                Button button = iconButtonsSerialized[i];
+                if (button == null)
+                    continue;
+
+                Text fallbackLabel = button.GetComponentInChildren<Text>(true);
+                if (fallbackLabel != null)
+                    iconFallbackLabels[IconIds[i]] = fallbackLabel;
+            }
+        }
+    }
+
+    private void BindSerializedButtons()
+    {
+        ConfigureButton(closeButton, Close);
+        ConfigureButton(okButton, Save);
+        ConfigureButton(deleteButton, DeleteCurrent);
+        ConfigureButton(completeButton, ToggleComplete);
+        ConfigureButton(saveButton, Save);
+        ConfigureButton(nowButton, SetReminderNow);
+        ConfigureButton(clearReminderButton, ClearReminderTime);
+        ConfigureButton(micButton, DictateNote);
+        ConfigureButton(createNoteButton, CreateCenterScreenNote);
+        ConfigureButton(editNoteButton, OpenSelected);
+        ConfigureButton(clearDbButton, ClearAllData);
+        ConfigureButton(noteHistoryButton, OpenHistory);
+
+        ConfigureChoiceButtons(colorButtons, ColorNames, SelectColor);
+        ConfigureChoiceButtons(iconButtonsSerialized, IconIds, SelectIcon);
+        ConfigureChoiceButtons(priorityButtonsSerialized, PriorityIds, SelectPriority);
+    }
+
+    private void BindSerializedPickerControls()
+    {
+        ConfigurePickerColumn("year", () => ShiftYear(1), () => ShiftYear(-1));
+        ConfigurePickerColumn("month", () => ShiftMonth(1), () => ShiftMonth(-1));
+        ConfigurePickerColumn("day", () => ShiftDay(1), () => ShiftDay(-1));
+        ConfigurePickerColumn("hour", () => ShiftHour(1), () => ShiftHour(-1));
+        ConfigurePickerColumn("minute", () => ShiftMinute(1), () => ShiftMinute(-1));
+        ConfigurePickerColumn("period", TogglePeriod, TogglePeriod);
+    }
+
+    private void RegisterPickerLabels()
+    {
+        pickerOptionLabels.Clear();
+
+        if (pickerPreviousLabels == null || pickerCurrentLabels == null || pickerNextLabels == null)
+            return;
+
+        for (int i = 0; i < pickerPreviousLabels.Length && i < 6; i++)
+        {
+            if (pickerPreviousLabels[i] == null)
+                continue;
+
+            if (i >= pickerCurrentLabels.Length || i >= pickerNextLabels.Length)
+                continue;
+
+            pickerOptionLabels[GetPickerKey(i)] = new[]
+            {
+                pickerPreviousLabels[i],
+                pickerCurrentLabels[i],
+                pickerNextLabels[i]
+            };
+        }
+    }
+
+    private static string GetPickerKey(int index)
+    {
+        switch (index)
+        {
+            case 0: return "year";
+            case 1: return "month";
+            case 2: return "day";
+            case 3: return "hour";
+            case 4: return "minute";
+            default: return "period";
+        }
+    }
+
+    private static void RegisterImages(Dictionary<string, Image> target, string[] keys, Image[] images)
+    {
+        if (target == null || keys == null || images == null)
+            return;
+
+        target.Clear();
+        for (int i = 0; i < keys.Length && i < images.Length; i++)
+        {
+            if (images[i] != null)
+                target[keys[i]] = images[i];
+        }
+    }
+
+    private static void RegisterTexts(Dictionary<string, Text> target, string[] keys, Text[] labels)
+    {
+        if (target == null || keys == null || labels == null)
+            return;
+
+        target.Clear();
+        for (int i = 0; i < keys.Length && i < labels.Length; i++)
+        {
+            if (labels[i] != null)
+                target[keys[i]] = labels[i];
+        }
+    }
+
+    private static void ConfigureChoiceButtons(Button[] buttons, string[] values, Action<string> action)
+    {
+        if (buttons == null || values == null || action == null)
+            return;
+
+        for (int i = 0; i < buttons.Length && i < values.Length; i++)
+        {
+            string value = values[i];
+            ConfigureButton(buttons[i], () => action(value));
+        }
+    }
+
+    private static void ConfigureButton(Button button, UnityAction action)
+    {
+        if (button == null || action == null)
+            return;
+
+        RuntimeButtonActionRelay relay = button.GetComponent<RuntimeButtonActionRelay>();
+        if (relay == null)
+            relay = button.gameObject.AddComponent<RuntimeButtonActionRelay>();
+
+        relay.Configure(action);
+        button.onClick.AddListener(relay.Invoke);
+    }
+
+    private void ConfigurePickerColumn(string key, UnityAction upAction, UnityAction downAction)
+    {
+        Transform column = FindChildRecursive(transform, key + "PickerColumn");
+        if (column == null)
+            return;
+
+        PickerColumnDragHandler dragHandler = column.GetComponent<PickerColumnDragHandler>();
+        if (dragHandler != null)
+            dragHandler.Configure(upAction, downAction);
+
+        Button[] buttons = column.GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button == null)
+                continue;
+
+            if (button.name.StartsWith("^", StringComparison.Ordinal))
+                ConfigureButton(button, upAction);
+            else if (button.name.StartsWith("v", StringComparison.Ordinal))
+                ConfigureButton(button, downAction);
+        }
+    }
+
+    private static Transform FindChildRecursive(Transform parent, string childName)
+    {
+        if (parent == null)
+            return null;
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            Transform child = parent.GetChild(i);
+            if (child.name == childName)
+                return child;
+
+            Transform match = FindChildRecursive(child, childName);
+            if (match != null)
+                return match;
+        }
+
+        return null;
     }
 
     private void BuildUi(Transform parent)
