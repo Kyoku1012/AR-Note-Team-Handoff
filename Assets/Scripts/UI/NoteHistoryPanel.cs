@@ -130,16 +130,16 @@ public class NoteHistoryPanel : MonoBehaviour
     {
         Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
 
-        CreateBlock(parent, "HistoryHeader", new Vector2(0, -32), new Vector2(430, 64), new Color(0.1f, 0.12f, 0.12f, 1f));
-        CreateButton(parent, "<", font, new Vector2(-185, -32), new Vector2(48, 44), Close, new Color(0f, 0f, 0f, 0f), Color.white, 30);
-        Text title = CreateLabel(parent, "Note History", font, 22, new Vector2(0, -32), new Vector2(260, 44), Color.white, TextAnchor.MiddleCenter);
+        CreateBlock(parent, "HistoryHeader", new Vector2(0, -26), new Vector2(430, 52), new Color(0.1f, 0.12f, 0.12f, 1f));
+        CreateButton(parent, "<", font, new Vector2(-185, -26), new Vector2(42, 38), Close, new Color(0f, 0f, 0f, 0f), Color.white, 26);
+        Text title = CreateLabel(parent, "Note History", font, 20, new Vector2(0, -26), new Vector2(260, 38), Color.white, TextAnchor.MiddleCenter);
         title.fontStyle = FontStyle.Bold;
 
-        CreateBlock(parent, "TabBarBackground", new Vector2(0, -98), new Vector2(390, 46), new Color(0.87f, 0.89f, 0.84f, 1f));
+        CreateBlock(parent, "TabBarBackground", new Vector2(0, -78), new Vector2(390, 36), new Color(0.87f, 0.89f, 0.84f, 1f));
         for (int i = 0; i < Filters.Length; i++)
         {
             string filter = Filters[i];
-            Button tab = CreateButton(parent, ToTitle(filter), font, new Vector2(-146 + i * 97, -98), new Vector2(88, 34), () => SetFilter(filter), new Color(1f, 1f, 1f, 0.45f), new Color(0.12f, 0.14f, 0.13f, 1f), 15);
+            Button tab = CreateButton(parent, ToTitle(filter), font, new Vector2(-146 + i * 97, -78), new Vector2(88, 28), () => SetFilter(filter), new Color(1f, 1f, 1f, 0.45f), new Color(0.12f, 0.14f, 0.13f, 1f), 13);
             tabBackgrounds[filter] = tab.GetComponent<Image>();
         }
 
@@ -148,8 +148,8 @@ public class NoteHistoryPanel : MonoBehaviour
         RectTransform viewportRect = viewport.AddComponent<RectTransform>();
         viewportRect.anchorMin = new Vector2(0.5f, 0f);
         viewportRect.anchorMax = new Vector2(0.5f, 1f);
-        viewportRect.offsetMin = new Vector2(-197, 24);
-        viewportRect.offsetMax = new Vector2(197, -134);
+        viewportRect.offsetMin = new Vector2(-197, 16);
+        viewportRect.offsetMax = new Vector2(197, -104);
         Image viewportImage = viewport.AddComponent<Image>();
         viewportImage.color = new Color(1f, 1f, 1f, 0.04f);
         Mask mask = viewport.AddComponent<Mask>();
@@ -166,8 +166,8 @@ public class NoteHistoryPanel : MonoBehaviour
         contentRoot = content.transform;
 
         VerticalLayoutGroup layout = content.AddComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(0, 0, 8, 24);
-        layout.spacing = 10;
+        layout.padding = new RectOffset(0, 0, 4, 10);
+        layout.spacing = 5;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
@@ -198,7 +198,7 @@ public class NoteHistoryPanel : MonoBehaviour
         GameObject row = new GameObject("HistoryNoteRow");
         row.transform.SetParent(parent, false);
         RectTransform rect = row.AddComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(382, 92);
+        rect.sizeDelta = new Vector2(382, 68);
 
         Image background = row.AddComponent<Image>();
         background.color = rowBackgroundColor;
@@ -209,13 +209,13 @@ public class NoteHistoryPanel : MonoBehaviour
         button.onClick.AddListener(relay.Invoke);
 
         LayoutElement layout = row.AddComponent<LayoutElement>();
-        layout.preferredHeight = 92;
-        layout.minHeight = 92;
+        layout.preferredHeight = 68;
+        layout.minHeight = 68;
 
         bool hasPriority = !string.IsNullOrWhiteSpace(note.priorityId);
         if (hasPriority)
         {
-            Image colorStrip = CreateChildBlock(row.transform, "PriorityStrip", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 76), isCompleted ? new Color(0.62f, 0.64f, 0.61f, 1f) : GetPriorityColor(note.priorityId));
+            Image colorStrip = CreateChildBlock(row.transform, "PriorityStrip", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(5, 52), isCompleted ? new Color(0.62f, 0.64f, 0.61f, 1f) : GetPriorityColor(note.priorityId));
             colorStrip.rectTransform.anchoredPosition = new Vector2(10, 0);
         }
 
@@ -223,8 +223,8 @@ public class NoteHistoryPanel : MonoBehaviour
         if (hasIcon)
         {
             Sprite iconSprite = GetIconSprite(styleManager, note.iconId);
-            Image icon = CreateChildBlock(row.transform, "NoteIcon", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(38, 38), isCompleted ? new Color(0.78f, 0.8f, 0.76f, 1f) : new Color(0.93f, 0.95f, 0.92f, 1f));
-            icon.rectTransform.anchoredPosition = new Vector2(38, 0);
+            Image icon = CreateChildBlock(row.transform, "NoteIcon", new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(30, 30), isCompleted ? new Color(0.78f, 0.8f, 0.76f, 1f) : new Color(0.93f, 0.95f, 0.92f, 1f));
+            icon.rectTransform.anchoredPosition = new Vector2(34, 0);
             icon.sprite = iconSprite;
             icon.preserveAspect = true;
             if (iconSprite != null && isCompleted)
@@ -233,20 +233,20 @@ public class NoteHistoryPanel : MonoBehaviour
             iconFallback.gameObject.SetActive(iconSprite == null);
         }
 
-        float textLeft = hasIcon ? 68f : 28f;
-        float textRight = hasPriority ? -96f : -44f;
-        Text title = CreateChildLabel(row.transform, GetDisplayTitle(note), font, 17, primaryTextColor, TextAnchor.MiddleLeft, new Vector2(textLeft, 42), new Vector2(textRight, -20));
+        float textLeft = hasIcon ? 58f : 28f;
+        float textRight = hasPriority ? -86f : -38f;
+        Text title = CreateChildLabel(row.transform, GetDisplayTitle(note), font, 15, primaryTextColor, TextAnchor.MiddleLeft, new Vector2(textLeft, 31), new Vector2(textRight, -10));
         title.fontStyle = FontStyle.Bold;
         title.horizontalOverflow = HorizontalWrapMode.Wrap;
         title.verticalOverflow = VerticalWrapMode.Truncate;
 
-        Text reminder = CreateChildLabel(row.transform, GetReminderText(note), font, 12, secondaryTextColor, TextAnchor.MiddleLeft, new Vector2(textLeft, 16), new Vector2(textRight, -48));
+        Text reminder = CreateChildLabel(row.transform, GetReminderText(note), font, 11, secondaryTextColor, TextAnchor.MiddleLeft, new Vector2(textLeft, 12), new Vector2(textRight, -38));
         reminder.gameObject.SetActive(!string.IsNullOrWhiteSpace(reminder.text));
 
         if (hasPriority)
         {
-            Image priorityBadge = CreateChildBlock(row.transform, "PriorityBadge", new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(74, 30), isCompleted ? new Color(0.64f, 0.66f, 0.63f, 0.88f) : GetPriorityBadgeColor(note.priorityId));
-            priorityBadge.rectTransform.anchoredPosition = new Vector2(-44, 16);
+            Image priorityBadge = CreateChildBlock(row.transform, "PriorityBadge", new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(64, 24), isCompleted ? new Color(0.64f, 0.66f, 0.63f, 0.88f) : GetPriorityBadgeColor(note.priorityId));
+            priorityBadge.rectTransform.anchoredPosition = new Vector2(-40, 12);
             Sprite prioritySprite = GetPrioritySprite(styleManager, note.priorityId);
             if (prioritySprite != null)
             {
@@ -255,11 +255,11 @@ public class NoteHistoryPanel : MonoBehaviour
                 priorityBadge.color = isCompleted ? new Color(0.74f, 0.76f, 0.72f, 1f) : Color.white;
             }
 
-            Text priorityText = CreateChildLabel(priorityBadge.transform, ToTitle(note.priorityId), font, 12, isCompleted ? new Color(0.88f, 0.89f, 0.86f, 1f) : Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
+            Text priorityText = CreateChildLabel(priorityBadge.transform, ToTitle(note.priorityId), font, 11, isCompleted ? new Color(0.88f, 0.89f, 0.86f, 1f) : Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.zero);
             priorityText.gameObject.SetActive(prioritySprite == null);
         }
 
-        CreateChildLabel(row.transform, ">", font, 24, isCompleted ? secondaryTextColor : new Color(0.44f, 0.48f, 0.45f, 1f), TextAnchor.MiddleCenter, new Vector2(348, 12), new Vector2(-8, -48));
+        CreateChildLabel(row.transform, ">", font, 20, isCompleted ? secondaryTextColor : new Color(0.44f, 0.48f, 0.45f, 1f), TextAnchor.MiddleCenter, new Vector2(350, 8), new Vector2(-8, -38));
     }
 
     private void UpdateTabs()
