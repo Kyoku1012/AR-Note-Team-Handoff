@@ -1,3 +1,5 @@
+using System;
+using System.Globalization;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,6 +12,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
     private TMP_Text[] titleTexts;
     private TMP_Text[] contentTexts;
+    private TMP_Text[] reminderTimeTexts;
     private NoteStyleManager styleManager;
     private Canvas[] noteCanvases;
     private LineRenderer selectionFrame;
@@ -94,11 +97,22 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
                 text.text = displayTitle;
         }
 
-        string displayContent = string.IsNullOrWhiteSpace(Data.content) ? Data.annotation : Data.content;
+        string displayContent = IsPlaceholderContent(Data.content) ? "" : Data.content ?? "";
         foreach (TMP_Text text in contentTexts)
         {
             if (text != null)
                 text.text = displayContent;
+        }
+
+        string reminderDisplay = GetReminderDisplayText();
+        foreach (TMP_Text text in reminderTimeTexts)
+        {
+            if (text == null)
+                continue;
+
+            bool hasReminderDisplay = !string.IsNullOrWhiteSpace(reminderDisplay);
+            text.text = hasReminderDisplay ? reminderDisplay : "";
+            text.gameObject.SetActive(hasReminderDisplay);
         }
 
         if (styleManager != null)
@@ -162,6 +176,9 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         if (contentTexts == null || contentTexts.Length == 0)
             contentTexts = FindTexts("ContentText-NeedtoEdite", "ContentText");
 
+        if (reminderTimeTexts == null || reminderTimeTexts.Length == 0)
+            reminderTimeTexts = FindTexts(false, "TimeStampText-NeedtoEdite", "TimeStampText", "ReminderTimeText");
+
         if (noteCanvases == null || noteCanvases.Length == 0)
             noteCanvases = GetComponentsInChildren<Canvas>(true);
 
@@ -169,6 +186,22 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
             noteCollider = GetComponent<BoxCollider>() ?? GetComponentInChildren<BoxCollider>(true);
 
         EnsureSelectionFrame();
+    }
+
+    private string GetReminderDisplayText()
+    {
+        if (Data == null || !Data.hasReminder || string.IsNullOrWhiteSpace(Data.reminderTime))
+            return "";
+
+        if (ReminderManager.TryParseReminderTime(Data.reminderTime, out DateTime reminderTime))
+            return reminderTime.ToString("yyyy - MM - dd  HH:mm", CultureInfo.InvariantCulture);
+
+        return Data.reminderTime;
+    }
+
+    private bool IsPlaceholderContent(string value)
+    {
+        return string.Equals(value, "Tap Edit to add details", StringComparison.OrdinalIgnoreCase);
     }
 
     private void HandleNoteSelected(NoteView selected)
@@ -198,6 +231,11 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
     private TMP_Text[] FindTexts(params string[] childNames)
     {
+        return FindTexts(true, childNames);
+    }
+
+    private TMP_Text[] FindTexts(bool warnIfMissing, params string[] childNames)
+    {
         System.Collections.Generic.List<TMP_Text> texts = new System.Collections.Generic.List<TMP_Text>();
         TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>(true);
 
@@ -210,7 +248,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
             }
         }
 
-        if (texts.Count == 0)
+        if (warnIfMissing && texts.Count == 0)
             Debug.LogWarning("NoteView could not find note text fields on " + name + ".");
 
         return texts.ToArray();

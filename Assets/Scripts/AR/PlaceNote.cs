@@ -74,7 +74,7 @@ public class PlaceNote : MonoBehaviour
         if (result == null || notePrefab == null) return;
 
         Quaternion finalRotation = CalculateReadableRotation(result);
-        CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "Tap Edit to add details");
+        CreateNoteAt("NoteAnchor", result.Position, finalRotation, true, "New Note", "");
     }
 
     public NoteView CreateCenterScreenNote()
@@ -102,7 +102,7 @@ public class PlaceNote : MonoBehaviour
             }
         }
 
-        NoteView noteView = CreateNoteInFrontOfCamera("CenterScreenNoteAnchor", "New Note", "Tap Edit to add details");
+        NoteView noteView = CreateNoteInFrontOfCamera("CenterScreenNoteAnchor", "New Note", "");
         if (noteView != null)
             Debug.Log("Created center-screen note without ground-plane detection.");
 
