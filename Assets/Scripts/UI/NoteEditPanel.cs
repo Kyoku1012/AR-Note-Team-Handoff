@@ -982,7 +982,7 @@ public class NoteEditPanel : MonoBehaviour
         overlayRect.offsetMax = Vector2.zero;
 
         Image dim = overlay.AddComponent<Image>();
-        dim.color = new Color(0f, 0f, 0f, 0.35f);
+        dim.color = Color.clear;
 
         GameObject dialog = new GameObject("Dialog");
         dialog.transform.SetParent(overlay.transform, false);
