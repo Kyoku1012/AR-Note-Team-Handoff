@@ -343,7 +343,7 @@ public class NoteEditPanel : MonoBehaviour
         }
 
         if (panelBackground != null)
-            panelBackground.color = GetPanelColor(selectedColorName);
+            panelBackground.color = new Color(0.96f, 0.97f, 0.98f, 0.98f);
 
         if (completeCheckmark != null)
             completeCheckmark.SetActive(selectedCompleted);
@@ -420,6 +420,7 @@ public class NoteEditPanel : MonoBehaviour
         if (reminderToggle != null)
             reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
 
+        ConfigureEditPanelProductStyle();
         prefabUiInitialized = true;
     }
 
@@ -649,6 +650,7 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(parent, "Delete", font, new Vector2(-138, -724), new Vector2(88, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 15);
         CreateCompleteButton(parent, font, new Vector2(-20, -724), new Vector2(118, 38));
         CreateButton(parent, "Save Note", font, new Vector2(118, -724), new Vector2(122, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 16);
+        ConfigureEditPanelProductStyle();
     }
 
     private void BuildColorRow(Transform parent, Font font, float y)
@@ -1006,6 +1008,218 @@ public class NoteEditPanel : MonoBehaviour
 
         if (editNoteButton != null)
             editNoteButton.gameObject.SetActive(testMenuOpen);
+    }
+
+    private void ConfigureEditPanelProductStyle()
+    {
+        StylePanelFrame();
+        StyleInputField(titleInput);
+        StyleInputField(noteInput);
+
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button == null)
+                continue;
+
+            Text label = button.GetComponentInChildren<Text>(true);
+            string text = label == null ? "" : label.text.Trim();
+            if (text == "OK")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.HeaderPrimary);
+            else if (text == "Mic")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Secondary);
+            else if (text == "Delete")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Danger);
+            else if (text == "Complete")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Neutral);
+            else if (text == "Save Note")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Primary);
+        }
+
+        Text[] labels = GetComponentsInChildren<Text>(true);
+        foreach (Text label in labels)
+            StyleEditPanelText(label);
+
+        StyleToggle(reminderToggle);
+    }
+
+    private enum EditPanelButtonRole
+    {
+        Primary,
+        HeaderPrimary,
+        Secondary,
+        Neutral,
+        Danger
+    }
+
+    private void StylePanelFrame()
+    {
+        if (panelBackground != null)
+            panelBackground.color = new Color(0.96f, 0.97f, 0.98f, 0.98f);
+
+        Transform header = FindChildRecursive(transform, "HeaderBar");
+        if (header != null)
+        {
+            Image headerImage = header.GetComponent<Image>();
+            if (headerImage != null)
+                headerImage.color = new Color(0.08f, 0.1f, 0.14f, 0.98f);
+        }
+    }
+
+    private static void StyleInputField(InputField input)
+    {
+        if (input == null)
+            return;
+
+        Image image = input.GetComponent<Image>();
+        if (image != null)
+            image.color = Color.white;
+
+        Outline outline = input.GetComponent<Outline>();
+        if (outline == null)
+            outline = input.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.76f, 0.8f, 0.86f, 1f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        if (input.textComponent != null)
+        {
+            input.textComponent.color = new Color(0.08f, 0.1f, 0.14f, 1f);
+            input.textComponent.fontSize = 15;
+            input.textComponent.fontStyle = FontStyle.Normal;
+            input.textComponent.lineSpacing = 1f;
+        }
+
+        Text placeholder = input.placeholder as Text;
+        if (placeholder != null)
+        {
+            placeholder.color = new Color(0.52f, 0.58f, 0.66f, 1f);
+            placeholder.fontSize = 15;
+            placeholder.fontStyle = FontStyle.Normal;
+        }
+
+        ColorBlock colors = input.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = new Color(0.93f, 0.96f, 1f, 1f);
+        colors.selectedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.disabledColor = new Color(0.86f, 0.88f, 0.91f, 0.65f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        input.colors = colors;
+    }
+
+    private static void StyleEditPanelButton(Button button, string text, EditPanelButtonRole role)
+    {
+        Color backgroundColor;
+        Color borderColor;
+        Color textColor;
+
+        switch (role)
+        {
+            case EditPanelButtonRole.Primary:
+                backgroundColor = new Color(0.16f, 0.38f, 0.74f, 1f);
+                borderColor = new Color(0.11f, 0.28f, 0.6f, 1f);
+                textColor = Color.white;
+                break;
+            case EditPanelButtonRole.HeaderPrimary:
+                backgroundColor = new Color(0.18f, 0.42f, 0.78f, 1f);
+                borderColor = new Color(0.42f, 0.63f, 0.92f, 1f);
+                textColor = Color.white;
+                break;
+            case EditPanelButtonRole.Danger:
+                backgroundColor = new Color(1f, 0.96f, 0.95f, 1f);
+                borderColor = new Color(0.82f, 0.26f, 0.22f, 1f);
+                textColor = new Color(0.62f, 0.12f, 0.1f, 1f);
+                break;
+            case EditPanelButtonRole.Neutral:
+                backgroundColor = new Color(0.94f, 0.97f, 0.95f, 1f);
+                borderColor = new Color(0.48f, 0.62f, 0.54f, 1f);
+                textColor = new Color(0.13f, 0.22f, 0.17f, 1f);
+                break;
+            default:
+                backgroundColor = new Color(0.97f, 0.98f, 0.99f, 1f);
+                borderColor = new Color(0.72f, 0.76f, 0.82f, 1f);
+                textColor = new Color(0.12f, 0.16f, 0.22f, 1f);
+                break;
+        }
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = backgroundColor;
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline == null)
+            outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = new Color(0.9f, 0.93f, 0.96f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.8f, 0.82f, 0.86f, 0.55f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        Text label = button.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.text = text;
+            label.color = textColor;
+            label.fontSize = role == EditPanelButtonRole.HeaderPrimary ? 16 : 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+        }
+    }
+
+    private static void StyleEditPanelText(Text label)
+    {
+        if (label == null)
+            return;
+
+        string text = label.text.Trim();
+        if (text == "Edit AR Note")
+        {
+            label.color = Color.white;
+            label.fontSize = 22;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            return;
+        }
+
+        if (text == "Title" || text == "Note" || text == "Color" || text == "Icon" || text == "Priority" || text == "Reminder" || text == "Speech")
+        {
+            label.color = new Color(0.2f, 0.25f, 0.33f, 1f);
+            label.fontSize = 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleLeft;
+            return;
+        }
+
+        if (text == "No time set" || text == "Speech input ready")
+        {
+            label.color = new Color(0.36f, 0.42f, 0.5f, 1f);
+            label.fontSize = text == "Speech input ready" ? 13 : 14;
+            label.fontStyle = FontStyle.Normal;
+        }
+    }
+
+    private static void StyleToggle(Toggle toggle)
+    {
+        if (toggle == null)
+            return;
+
+        Text label = toggle.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.color = new Color(0.12f, 0.16f, 0.22f, 1f);
+            label.fontSize = 15;
+            label.fontStyle = FontStyle.Bold;
+        }
     }
 
     private void ShowDeleteAllNotesConfirmDialog()
