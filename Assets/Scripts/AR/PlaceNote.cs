@@ -19,6 +19,7 @@ public class PlaceNote : MonoBehaviour
     public float lookDownThreshold = -0.45f;
 
     private PlaneFinderBehaviour planeFinder;
+    private static readonly Quaternion CreateNoteInwardFlip = Quaternion.Euler(-90f, 0f, 0f);
 
     private void Start()
     {
@@ -115,6 +116,7 @@ public class PlaceNote : MonoBehaviour
             return null;
 
         CalculateCreateNotePose(out Vector3 position, out Quaternion rotation, out string placementMode);
+        rotation *= CreateNoteInwardFlip;
         Debug.Log("Create Note placement mode: " + placementMode);
 
         return CreateNoteAt(anchorName, position, rotation, true, title, content);
