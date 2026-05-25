@@ -18,6 +18,11 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
     private LineRenderer selectionFrame;
     private BoxCollider noteCollider;
 
+    private const float SelectionWidth = 0.35f;
+    private const float SelectionHeight = 0.35f;
+    private const float SelectionVerticalOffset = 0.03f;
+    private const float SelectionColliderDepth = 0.04f;
+
     public void Initialize(NoteData data, GameObject anchorRoot, bool selectOnCreate = true)
     {
         Data = data == null ? new NoteData() : data.Clone();
@@ -292,12 +297,12 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         selectionFrame.startColor = new Color(0.1f, 0.9f, 1f, 1f);
         selectionFrame.endColor = new Color(0.1f, 0.9f, 1f, 1f);
 
-        const float halfWidth = 0.32f;
-        const float halfHeight = 0.46f;
-        selectionFrame.SetPosition(0, new Vector3(-halfWidth, 0f, -halfHeight));
-        selectionFrame.SetPosition(1, new Vector3(-halfWidth, 0f, halfHeight));
-        selectionFrame.SetPosition(2, new Vector3(halfWidth, 0f, halfHeight));
-        selectionFrame.SetPosition(3, new Vector3(halfWidth, 0f, -halfHeight));
+        const float halfWidth = SelectionWidth * 0.5f;
+        const float halfHeight = SelectionHeight * 0.5f;
+        selectionFrame.SetPosition(0, new Vector3(-halfWidth, 0f, SelectionVerticalOffset - halfHeight));
+        selectionFrame.SetPosition(1, new Vector3(-halfWidth, 0f, SelectionVerticalOffset + halfHeight));
+        selectionFrame.SetPosition(2, new Vector3(halfWidth, 0f, SelectionVerticalOffset + halfHeight));
+        selectionFrame.SetPosition(3, new Vector3(halfWidth, 0f, SelectionVerticalOffset - halfHeight));
         selectionFrame.gameObject.SetActive(false);
     }
 
@@ -309,8 +314,8 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         if (noteCollider == null)
             return;
 
-        noteCollider.center = new Vector3(0f, 0f, 0f);
-        noteCollider.size = new Vector3(0.7f, 1.0f, 0.08f);
+        noteCollider.center = new Vector3(0f, SelectionVerticalOffset, 0f);
+        noteCollider.size = new Vector3(SelectionWidth, SelectionHeight, SelectionColliderDepth);
     }
 
     private Transform FindDeepChild(Transform parent, string childName)
