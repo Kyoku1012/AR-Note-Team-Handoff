@@ -31,6 +31,7 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Button clearReminderButton;
     [SerializeField] private Button micButton;
     [SerializeField] private Button createNoteButton;
+    [SerializeField] private Button addVerticalNoteButton;
     [SerializeField] private Button editNoteButton;
     [SerializeField] private Button testMenuButton;
     [SerializeField] private Button clearDbButton;
@@ -494,6 +495,7 @@ public class NoteEditPanel : MonoBehaviour
         ConfigureButton(clearReminderButton, ClearReminderTime);
         ConfigureButton(micButton, DictateNote);
         ConfigureButton(createNoteButton, CreateCenterScreenNote);
+        ConfigureButton(addVerticalNoteButton, CreateCenterScreenNote);
         ConfigureButton(editNoteButton, OpenSelected);
         ConfigureButton(testMenuButton, ToggleTestMenu);
         ConfigureButton(clearDbButton, RequestClearAllData);
@@ -828,7 +830,8 @@ public class NoteEditPanel : MonoBehaviour
         panel.createNoteButton = CreateButton(launcher.transform, "Create Note", font, new Vector2(LauncherLeftColumnX, -84), new Vector2(120, 40), panel.CreateCenterScreenNote);
         panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(LauncherLeftColumnX, -132), new Vector2(120, 40), panel.OpenSelected);
         panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(LauncherRightColumnX, -40), new Vector2(150, 40), panel.OpenHistory);
-        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40), panel.RequestClearAllData);
+        panel.addVerticalNoteButton = CreateButton(launcher.transform, "Add Vertical Note", font, new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40), panel.CreateCenterScreenNote);
+        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(LauncherRightColumnX, -136), new Vector2(150, 40), panel.RequestClearAllData);
         panel.launcherRoot = launcher;
         panel.ConfigureLauncherButtons();
         return launcher;
@@ -930,16 +933,24 @@ public class NoteEditPanel : MonoBehaviour
         if (testMenuButton == null)
             testMenuButton = FindLauncherButton("Test MenuButton");
 
+        if (addVerticalNoteButton == null)
+            addVerticalNoteButton = FindLauncherButton("Add Vertical NoteButton");
+
         if (testMenuButton == null)
             testMenuButton = CreateButton(launcherRoot.transform, "Test Menu", font, new Vector2(LauncherLeftColumnX, -40), new Vector2(150, 40), ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
 
+        if (addVerticalNoteButton == null)
+            addVerticalNoteButton = CreateButton(launcherRoot.transform, "Add Vertical Note", font, new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40), CreateCenterScreenNote);
+
         ConfigureButton(testMenuButton, ToggleTestMenu);
+        ConfigureButton(addVerticalNoteButton, CreateCenterScreenNote);
         ConfigureButton(clearDbButton, RequestClearAllData);
 
         ConfigureLauncherButton(createNoteButton, "Create Note", new Vector2(LauncherLeftColumnX, -84), new Vector2(120, 40));
         ConfigureLauncherButton(editNoteButton, "Edit Note", new Vector2(LauncherLeftColumnX, -132), new Vector2(120, 40));
         ConfigureLauncherButton(noteHistoryButton, "Note History", new Vector2(LauncherRightColumnX, -40), new Vector2(150, 40));
-        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40));
+        ConfigureLauncherButton(addVerticalNoteButton, "Add Vertical Note", new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40));
+        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(LauncherRightColumnX, -136), new Vector2(150, 40));
         ConfigureLauncherButton(testMenuButton, "Test Menu", new Vector2(LauncherLeftColumnX, -40), new Vector2(150, 40));
         SetTestMenuOpen(false);
     }
@@ -982,7 +993,7 @@ public class NoteEditPanel : MonoBehaviour
         if (button == null)
             return;
 
-        bool isPrimary = label == "Create Note";
+        bool isPrimary = label == "Create Note" || label == "Add Vertical Note";
         bool isDanger = label == "Delete All Notes";
 
         Color backgroundColor = isPrimary
