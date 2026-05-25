@@ -2585,9 +2585,41 @@ PrefabInstance:
       propertyPath: m_RootOrder
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: -50
+      objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 90
+      objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 5381904138785765879, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 45
+      objectReference: {fileID: 0}
     - target: {fileID: 7214027111003010303, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
       propertyPath: m_RootOrder
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7214027111003010303, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.75
+      objectReference: {fileID: 0}
+    - target: {fileID: 7214027111003010303, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.75
       objectReference: {fileID: 0}
     - target: {fileID: 8628156481248120855, guid: c5c8143cdba63bc48a53592c7eeef841, type: 3}
       propertyPath: m_Name
@@ -3591,7 +3623,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1819981314
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3793,6 +3825,10 @@ MonoBehaviour:
   notePrefab: {fileID: 6615528028870974021, guid: b13e18e86d5bea648974654844d30724, type: 3}
   offset: 0.01
   noteTapRayDistance: 20
+  wallCreateDistance: 1.2
+  horizontalCreateDistance: 1
+  horizontalCreateDrop: 0.45
+  lookDownThreshold: -0.45
 --- !u!1 &1966378822
 GameObject:
   m_ObjectHideFlags: 0

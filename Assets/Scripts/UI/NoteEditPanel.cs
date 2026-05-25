@@ -32,6 +32,7 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Button micButton;
     [SerializeField] private Button createNoteButton;
     [SerializeField] private Button editNoteButton;
+    [SerializeField] private Button testMenuButton;
     [SerializeField] private Button clearDbButton;
     [SerializeField] private Button noteHistoryButton;
     [SerializeField] private Button[] colorButtons;
@@ -60,6 +61,9 @@ public class NoteEditPanel : MonoBehaviour
     [SerializeField] private Image completeCheckboxBackground;
     [SerializeField] private GameObject launcherRoot;
 
+    private GameObject deleteAllNotesConfirmDialog;
+    private GameObject reminderCheckmark;
+    private Image reminderCheckboxBackground;
     private string selectedColorName = "yellow";
     private string selectedIconId = "";
     private string selectedPriorityId = "";
@@ -67,11 +71,14 @@ public class NoteEditPanel : MonoBehaviour
     private bool hasSelectedReminderTime;
     private DateTime selectedReminderTime;
     private bool prefabUiInitialized;
+    private bool testMenuOpen;
+    private float lastSpeechTapRealtime = -1f;
 
     private static readonly string[] ColorNames = { "yellow", "pink", "blue", "green" };
     private static readonly string[] IconIds = { "star", "finish", "inprocess", "reminder", "work", "study", "shopping" };
     private static readonly string[] PriorityIds = { "low", "medium", "high" };
     private static readonly string[] MonthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+    private const float SpeechTapDebounceSeconds = 0.6f;
 
     private void Awake()
     {
@@ -246,8 +253,26 @@ public class NoteEditPanel : MonoBehaviour
         if (noteInput == null)
             return;
 
-        UpdateSpeechStatus("Listening...");
-        SpeechToTextManager.Instance?.StartDictation(
+        if (Time.unscaledTime - lastSpeechTapRealtime < SpeechTapDebounceSeconds)
+            return;
+
+        lastSpeechTapRealtime = Time.unscaledTime;
+
+        if (SpeechToTextManager.Instance == null)
+        {
+            UpdateSpeechStatus("Speech input is not ready. Reopen the scene and try again.");
+            return;
+        }
+
+        if (SpeechToTextManager.Instance.IsListening)
+        {
+            SpeechToTextManager.Instance.StopDictation();
+            UpdateSpeechStatus("Speech input stopped.");
+            return;
+        }
+
+        UpdateSpeechStatus("Listening... tap Mic again to finish.");
+        SpeechToTextManager.Instance.StartDictation(
             text =>
             {
                 string currentText = GetInputValue(noteInput);
@@ -320,7 +345,7 @@ public class NoteEditPanel : MonoBehaviour
         }
 
         if (panelBackground != null)
-            panelBackground.color = GetPanelColor(selectedColorName);
+            panelBackground.color = new Color(0.96f, 0.97f, 0.98f, 0.98f);
 
         if (completeCheckmark != null)
             completeCheckmark.SetActive(selectedCompleted);
@@ -330,6 +355,8 @@ public class NoteEditPanel : MonoBehaviour
 
         if (completeCheckboxBackground != null)
             completeCheckboxBackground.color = selectedCompleted ? new Color(0.9f, 1f, 0.88f, 1f) : Color.white;
+
+        UpdateReminderToggleVisuals();
     }
 
     private void UpdateIconSprites()
@@ -392,10 +419,17 @@ public class NoteEditPanel : MonoBehaviour
         BindSerializedCollections();
         BindSerializedButtons();
         BindSerializedPickerControls();
+        ConfigureLauncherButtons();
 
         if (reminderToggle != null)
-            reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
+            reminderToggle.onValueChanged.AddListener(_ =>
+            {
+                UpdateReminderSummary();
+                UpdateReminderToggleVisuals();
+            });
 
+        ConfigureEditPanelProductStyle();
+        UpdateReminderToggleVisuals();
         prefabUiInitialized = true;
     }
 
@@ -436,7 +470,8 @@ public class NoteEditPanel : MonoBehaviour
         ConfigureButton(micButton, DictateNote);
         ConfigureButton(createNoteButton, CreateCenterScreenNote);
         ConfigureButton(editNoteButton, OpenSelected);
-        ConfigureButton(clearDbButton, ClearAllData);
+        ConfigureButton(testMenuButton, ToggleTestMenu);
+        ConfigureButton(clearDbButton, RequestClearAllData);
         ConfigureButton(noteHistoryButton, OpenHistory);
 
         ConfigureChoiceButtons(colorButtons, ColorNames, SelectColor);
@@ -539,6 +574,7 @@ public class NoteEditPanel : MonoBehaviour
             relay = button.gameObject.AddComponent<RuntimeButtonActionRelay>();
 
         relay.Configure(action);
+        button.onClick.RemoveListener(relay.Invoke);
         button.onClick.AddListener(relay.Invoke);
     }
 
@@ -594,10 +630,10 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(parent, "OK", font, new Vector2(185, -28), new Vector2(54, 38), Save, new Color(0f, 0f, 0f, 0f), Color.white, 20);
 
         CreateRowLabel(parent, "Title", font, -102);
-        titleInput = CreateInput(parent, "", font, new Vector2(72, -102), new Vector2(280, 36), false, 80);
+        titleInput = CreateInput(parent, "", font, new Vector2(62, -102), new Vector2(260, 36), false, 80);
 
         CreateRowLabel(parent, "Note", font, -162);
-        noteInput = CreateInput(parent, "", font, new Vector2(72, -168), new Vector2(280, 86), true, 4000);
+        noteInput = CreateInput(parent, "", font, new Vector2(62, -168), new Vector2(260, 86), true, 4000);
 
         CreateRowLabel(parent, "Color", font, -250);
         BuildColorRow(parent, font, -250);
@@ -609,12 +645,16 @@ public class NoteEditPanel : MonoBehaviour
         BuildPriorityRow(parent, font, -366);
 
         CreateRowLabel(parent, "Reminder", font, -426);
-        reminderSummaryText = CreateTopAnchoredLabel(parent, "No time set", font, 16, new Vector2(64, -426), new Vector2(238, 34), Color.black);
+        reminderSummaryText = CreateTopAnchoredLabel(parent, "No time set", font, 16, new Vector2(54, -426), new Vector2(218, 34), Color.black);
         BuildDateTimePicker(parent, font, -498);
         CreateButton(parent, "Now", font, new Vector2(-34, -578), new Vector2(70, 30), SetReminderNow, new Color(1f, 0.99f, 0.88f, 1f), Color.black, 13);
         CreateButton(parent, "Clear", font, new Vector2(50, -578), new Vector2(70, 30), ClearReminderTime, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.7f, 0.1f, 0.1f, 1f), 13);
-        reminderToggle = CreateToggle(parent, "Reminder", font, new Vector2(72, -616));
-        reminderToggle.onValueChanged.AddListener(_ => UpdateReminderSummary());
+        reminderToggle = CreateToggle(parent, "Set Reminder", font, new Vector2(62, -616));
+        reminderToggle.onValueChanged.AddListener(_ =>
+        {
+            UpdateReminderSummary();
+            UpdateReminderToggleVisuals();
+        });
 
         CreateRowLabel(parent, "Speech", font, -666);
         CreateButton(parent, "Mic", font, new Vector2(-12, -666), new Vector2(86, 36), DictateNote, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
@@ -623,6 +663,7 @@ public class NoteEditPanel : MonoBehaviour
         CreateButton(parent, "Delete", font, new Vector2(-138, -724), new Vector2(88, 38), DeleteCurrent, new Color(0.95f, 0.95f, 0.86f, 1f), new Color(0.75f, 0.1f, 0.1f, 1f), 15);
         CreateCompleteButton(parent, font, new Vector2(-20, -724), new Vector2(118, 38));
         CreateButton(parent, "Save Note", font, new Vector2(118, -724), new Vector2(122, 40), Save, new Color(0.22f, 0.72f, 0.32f, 1f), Color.white, 16);
+        ConfigureEditPanelProductStyle();
     }
 
     private void BuildColorRow(Transform parent, Font font, float y)
@@ -758,11 +799,25 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
-        CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -40), new Vector2(120, 40), panel.CreateCenterScreenNote);
-        CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -88), new Vector2(120, 40), panel.OpenSelected);
-        CreateButton(launcher.transform, "Clear DB", font, new Vector2(-230, -136), new Vector2(120, 40), panel.ClearAllData);
-        CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(132, 40), panel.OpenHistory);
+        panel.testMenuButton = CreateButton(launcher.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), panel.ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+        panel.createNoteButton = CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -84), new Vector2(120, 40), panel.CreateCenterScreenNote);
+        panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -132), new Vector2(120, 40), panel.OpenSelected);
+        panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(150, 40), panel.OpenHistory);
+        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(160, -88), new Vector2(150, 40), panel.RequestClearAllData);
+        panel.launcherRoot = launcher;
+        panel.ConfigureLauncherButtons();
         return launcher;
+    }
+
+    private void RequestClearAllData()
+    {
+        ShowDeleteAllNotesConfirmDialog();
+    }
+
+    private void ConfirmClearAllData()
+    {
+        HideDeleteAllNotesConfirmDialog();
+        ClearAllData();
     }
 
     private void ClearAllData()
@@ -828,8 +883,510 @@ public class NoteEditPanel : MonoBehaviour
 
     private void SetLauncherVisible(bool visible)
     {
+        if (visible)
+            SetTestMenuOpen(false);
+        else
+            HideDeleteAllNotesConfirmDialog();
+
         if (launcherRoot != null)
             launcherRoot.SetActive(visible);
+    }
+
+    private void ConfigureLauncherButtons()
+    {
+        if (launcherRoot == null)
+            return;
+
+        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        if (testMenuButton == null)
+            testMenuButton = FindLauncherButton("Test MenuButton");
+
+        if (testMenuButton == null)
+            testMenuButton = CreateButton(launcherRoot.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+
+        ConfigureButton(testMenuButton, ToggleTestMenu);
+        ConfigureButton(clearDbButton, RequestClearAllData);
+
+        ConfigureLauncherButton(createNoteButton, "Create Note", new Vector2(-230, -84), new Vector2(120, 40));
+        ConfigureLauncherButton(editNoteButton, "Edit Note", new Vector2(-230, -132), new Vector2(120, 40));
+        ConfigureLauncherButton(noteHistoryButton, "Note History", new Vector2(160, -40), new Vector2(150, 40));
+        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(160, -88), new Vector2(150, 40));
+        ConfigureLauncherButton(testMenuButton, "Test Menu", new Vector2(-230, -40), new Vector2(150, 40));
+        SetTestMenuOpen(false);
+    }
+
+    private Button FindLauncherButton(string buttonName)
+    {
+        if (launcherRoot == null || string.IsNullOrWhiteSpace(buttonName))
+            return null;
+
+        Button[] buttons = launcherRoot.GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button != null && button.name == buttonName)
+                return button;
+        }
+
+        return null;
+    }
+
+    private static void ConfigureLauncherButton(Button button, string label, Vector2 position, Vector2 dimensions)
+    {
+        if (button == null)
+            return;
+
+        RectTransform rect = button.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.anchorMin = new Vector2(0.5f, 1f);
+            rect.anchorMax = new Vector2(0.5f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = dimensions;
+        }
+
+        ApplyLauncherButtonStyle(button, label);
+    }
+
+    private static void ApplyLauncherButtonStyle(Button button, string label)
+    {
+        if (button == null)
+            return;
+
+        bool isPrimary = label == "Create Note";
+        bool isDanger = label == "Delete All Notes";
+
+        Color backgroundColor = isPrimary
+            ? new Color(0.16f, 0.38f, 0.74f, 1f)
+            : isDanger
+                ? new Color(1f, 0.96f, 0.95f, 1f)
+                : new Color(0.97f, 0.98f, 0.99f, 1f);
+
+        Color borderColor = isPrimary
+            ? new Color(0.11f, 0.28f, 0.6f, 1f)
+            : isDanger
+                ? new Color(0.82f, 0.26f, 0.22f, 1f)
+                : new Color(0.72f, 0.76f, 0.82f, 1f);
+
+        Color textColor = isPrimary
+            ? Color.white
+            : isDanger
+                ? new Color(0.62f, 0.12f, 0.1f, 1f)
+                : new Color(0.12f, 0.16f, 0.22f, 1f);
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = backgroundColor;
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline == null)
+            outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = isPrimary ? new Color(0.92f, 0.96f, 1f, 1f) : new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = isPrimary ? new Color(0.78f, 0.87f, 1f, 1f) : new Color(0.9f, 0.93f, 0.96f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.8f, 0.82f, 0.86f, 0.55f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        Text labelText = button.GetComponentInChildren<Text>(true);
+        if (labelText != null)
+        {
+            labelText.text = label;
+            labelText.color = textColor;
+            labelText.fontSize = isDanger ? 14 : 15;
+            labelText.fontStyle = FontStyle.Bold;
+            labelText.alignment = TextAnchor.MiddleCenter;
+        }
+    }
+
+    private void ToggleTestMenu()
+    {
+        SetTestMenuOpen(!testMenuOpen);
+    }
+
+    private void SetTestMenuOpen(bool isOpen)
+    {
+        testMenuOpen = isOpen;
+
+        if (createNoteButton != null)
+            createNoteButton.gameObject.SetActive(testMenuOpen);
+
+        if (editNoteButton != null)
+            editNoteButton.gameObject.SetActive(testMenuOpen);
+    }
+
+    private void ConfigureEditPanelProductStyle()
+    {
+        StylePanelFrame();
+        SetRect(titleInput, new Vector2(62, -102), new Vector2(260, 36));
+        SetRect(noteInput, new Vector2(62, -168), new Vector2(260, 86));
+        SetRect(reminderSummaryText, new Vector2(54, -426), new Vector2(218, 34));
+        SetRect(reminderToggle, new Vector2(62, -616), new Vector2(260, 34));
+        StyleInputField(titleInput);
+        StyleInputField(noteInput);
+
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        foreach (Button button in buttons)
+        {
+            if (button == null)
+                continue;
+
+            Text label = button.GetComponentInChildren<Text>(true);
+            string text = label == null ? "" : label.text.Trim();
+            if (text == "OK")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.HeaderPrimary);
+            else if (text == "Mic")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Secondary);
+            else if (text == "Delete")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Danger);
+            else if (text == "Complete")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Neutral);
+            else if (text == "Save Note")
+                StyleEditPanelButton(button, text, EditPanelButtonRole.Primary);
+        }
+
+        Text[] labels = GetComponentsInChildren<Text>(true);
+        foreach (Text label in labels)
+            StyleEditPanelText(label);
+
+        StyleToggle(reminderToggle);
+    }
+
+    private static void SetRect(Component component, Vector2 position, Vector2 dimensions)
+    {
+        if (component == null)
+            return;
+
+        RectTransform rect = component.GetComponent<RectTransform>();
+        if (rect == null)
+            return;
+
+        rect.anchorMin = new Vector2(0.5f, 1f);
+        rect.anchorMax = new Vector2(0.5f, 1f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+    }
+
+    private enum EditPanelButtonRole
+    {
+        Primary,
+        HeaderPrimary,
+        Secondary,
+        Neutral,
+        Danger
+    }
+
+    private void StylePanelFrame()
+    {
+        if (panelBackground != null)
+            panelBackground.color = new Color(0.96f, 0.97f, 0.98f, 0.98f);
+
+        Transform header = FindChildRecursive(transform, "HeaderBar");
+        if (header != null)
+        {
+            Image headerImage = header.GetComponent<Image>();
+            if (headerImage != null)
+                headerImage.color = new Color(0.08f, 0.1f, 0.14f, 0.98f);
+        }
+    }
+
+    private static void StyleInputField(InputField input)
+    {
+        if (input == null)
+            return;
+
+        Image image = input.GetComponent<Image>();
+        if (image != null)
+            image.color = Color.white;
+
+        Outline outline = input.GetComponent<Outline>();
+        if (outline == null)
+            outline = input.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.76f, 0.8f, 0.86f, 1f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        if (input.textComponent != null)
+        {
+            input.textComponent.color = new Color(0.08f, 0.1f, 0.14f, 1f);
+            input.textComponent.fontSize = 15;
+            input.textComponent.fontStyle = FontStyle.Normal;
+            input.textComponent.lineSpacing = 1f;
+        }
+
+        Text placeholder = input.placeholder as Text;
+        if (placeholder != null)
+        {
+            placeholder.color = new Color(0.52f, 0.58f, 0.66f, 1f);
+            placeholder.fontSize = 15;
+            placeholder.fontStyle = FontStyle.Normal;
+        }
+
+        ColorBlock colors = input.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = new Color(0.93f, 0.96f, 1f, 1f);
+        colors.selectedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.disabledColor = new Color(0.86f, 0.88f, 0.91f, 0.65f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        input.colors = colors;
+    }
+
+    private static void StyleEditPanelButton(Button button, string text, EditPanelButtonRole role)
+    {
+        Color backgroundColor;
+        Color borderColor;
+        Color textColor;
+
+        switch (role)
+        {
+            case EditPanelButtonRole.Primary:
+                backgroundColor = new Color(0.16f, 0.38f, 0.74f, 1f);
+                borderColor = new Color(0.11f, 0.28f, 0.6f, 1f);
+                textColor = Color.white;
+                break;
+            case EditPanelButtonRole.HeaderPrimary:
+                backgroundColor = new Color(0.18f, 0.42f, 0.78f, 1f);
+                borderColor = new Color(0.42f, 0.63f, 0.92f, 1f);
+                textColor = Color.white;
+                break;
+            case EditPanelButtonRole.Danger:
+                backgroundColor = new Color(1f, 0.96f, 0.95f, 1f);
+                borderColor = new Color(0.82f, 0.26f, 0.22f, 1f);
+                textColor = new Color(0.62f, 0.12f, 0.1f, 1f);
+                break;
+            case EditPanelButtonRole.Neutral:
+                backgroundColor = new Color(0.94f, 0.97f, 0.95f, 1f);
+                borderColor = new Color(0.48f, 0.62f, 0.54f, 1f);
+                textColor = new Color(0.13f, 0.22f, 0.17f, 1f);
+                break;
+            default:
+                backgroundColor = new Color(0.97f, 0.98f, 0.99f, 1f);
+                borderColor = new Color(0.72f, 0.76f, 0.82f, 1f);
+                textColor = new Color(0.12f, 0.16f, 0.22f, 1f);
+                break;
+        }
+
+        Image image = button.GetComponent<Image>();
+        if (image != null)
+            image.color = backgroundColor;
+
+        Outline outline = button.GetComponent<Outline>();
+        if (outline == null)
+            outline = button.gameObject.AddComponent<Outline>();
+        outline.effectColor = borderColor;
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.96f, 0.98f, 1f, 1f);
+        colors.pressedColor = new Color(0.9f, 0.93f, 0.96f, 1f);
+        colors.selectedColor = colors.highlightedColor;
+        colors.disabledColor = new Color(0.8f, 0.82f, 0.86f, 0.55f);
+        colors.colorMultiplier = 1f;
+        colors.fadeDuration = 0.08f;
+        button.colors = colors;
+
+        Text label = button.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.text = text;
+            label.color = textColor;
+            label.fontSize = role == EditPanelButtonRole.HeaderPrimary ? 16 : 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+        }
+    }
+
+    private static void StyleEditPanelText(Text label)
+    {
+        if (label == null)
+            return;
+
+        string text = label.text.Trim();
+        if (text == "Edit AR Note")
+        {
+            label.color = Color.white;
+            label.fontSize = 22;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            return;
+        }
+
+        if (text == "Title" || text == "Note" || text == "Color" || text == "Icon" || text == "Priority" || text == "Reminder" || text == "Speech")
+        {
+            label.color = new Color(0.2f, 0.25f, 0.33f, 1f);
+            label.fontSize = 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleLeft;
+            return;
+        }
+
+        if (text == "No time set" || text == "Speech input ready")
+        {
+            label.color = new Color(0.36f, 0.42f, 0.5f, 1f);
+            label.fontSize = text == "Speech input ready" ? 13 : 14;
+            label.fontStyle = FontStyle.Normal;
+        }
+    }
+
+    private void StyleToggle(Toggle toggle)
+    {
+        if (toggle == null)
+            return;
+
+        HideChild(toggle.transform, "SwitchTrack");
+        HideChild(toggle.transform, "SwitchOn");
+        EnsureReminderCheckbox(toggle);
+
+        Text label = toggle.GetComponentInChildren<Text>(true);
+        if (label != null)
+        {
+            label.text = "Set Reminder";
+            label.color = new Color(0.12f, 0.16f, 0.22f, 1f);
+            label.fontSize = 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+
+            RectTransform labelRect = label.GetComponent<RectTransform>();
+            if (labelRect != null)
+            {
+                labelRect.offsetMin = new Vector2(30, 0);
+                labelRect.offsetMax = Vector2.zero;
+            }
+        }
+
+        Image background = toggle.GetComponent<Image>();
+        if (background != null)
+            background.color = new Color(0.94f, 0.97f, 0.95f, 1f);
+
+        Outline outline = toggle.GetComponent<Outline>();
+        if (outline == null)
+            outline = toggle.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.48f, 0.62f, 0.54f, 1f);
+        outline.effectDistance = new Vector2(1f, -1f);
+        outline.useGraphicAlpha = false;
+
+        toggle.targetGraphic = background;
+        toggle.graphic = null;
+        UpdateReminderToggleVisuals();
+    }
+
+    private void EnsureReminderCheckbox(Toggle toggle)
+    {
+        if (toggle == null)
+            return;
+
+        Transform checkboxTransform = toggle.transform.Find("ReminderCheckbox");
+        Image checkbox = checkboxTransform == null ? null : checkboxTransform.GetComponent<Image>();
+        if (checkbox == null)
+        {
+            checkbox = CreateChildImage(toggle.transform, "ReminderCheckbox", new Vector2(18, 18), Color.white);
+            checkbox.raycastTarget = false;
+            Outline outline = checkbox.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.18f, 0.2f, 0.18f, 1f);
+            outline.effectDistance = new Vector2(1f, -1f);
+        }
+
+        checkbox.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        checkbox.rectTransform.anchoredPosition = new Vector2(18, 0);
+        checkbox.rectTransform.sizeDelta = new Vector2(18, 18);
+        reminderCheckboxBackground = checkbox;
+
+        Transform checkmarkTransform = checkbox.transform.Find("ReminderCheckmark");
+        reminderCheckmark = checkmarkTransform == null ? CreateCheckmarkGraphic(checkbox.transform) : checkmarkTransform.gameObject;
+        reminderCheckmark.name = "ReminderCheckmark";
+    }
+
+    private void UpdateReminderToggleVisuals()
+    {
+        if (reminderToggle == null)
+            return;
+
+        if (reminderCheckboxBackground == null || reminderCheckmark == null)
+            EnsureReminderCheckbox(reminderToggle);
+
+        bool isOn = reminderToggle.isOn;
+        if (reminderCheckmark != null)
+            reminderCheckmark.SetActive(isOn);
+
+        if (reminderCheckboxBackground != null)
+            reminderCheckboxBackground.color = isOn ? new Color(0.9f, 1f, 0.88f, 1f) : Color.white;
+    }
+
+    private static void HideChild(Transform parent, string childName)
+    {
+        Transform child = parent == null ? null : parent.Find(childName);
+        if (child != null)
+            child.gameObject.SetActive(false);
+    }
+
+    private void ShowDeleteAllNotesConfirmDialog()
+    {
+        if (launcherRoot == null)
+            return;
+
+        if (deleteAllNotesConfirmDialog == null)
+            deleteAllNotesConfirmDialog = CreateDeleteAllNotesConfirmDialog(launcherRoot.transform);
+
+        deleteAllNotesConfirmDialog.SetActive(true);
+    }
+
+    private void HideDeleteAllNotesConfirmDialog()
+    {
+        if (deleteAllNotesConfirmDialog != null)
+            deleteAllNotesConfirmDialog.SetActive(false);
+    }
+
+    private GameObject CreateDeleteAllNotesConfirmDialog(Transform parent)
+    {
+        Font font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+
+        GameObject overlay = new GameObject("DeleteAllNotesConfirmDialog");
+        overlay.transform.SetParent(parent, false);
+
+        RectTransform overlayRect = overlay.AddComponent<RectTransform>();
+        overlayRect.anchorMin = Vector2.zero;
+        overlayRect.anchorMax = Vector2.one;
+        overlayRect.offsetMin = Vector2.zero;
+        overlayRect.offsetMax = Vector2.zero;
+
+        Image dim = overlay.AddComponent<Image>();
+        dim.color = Color.clear;
+
+        GameObject dialog = new GameObject("Dialog");
+        dialog.transform.SetParent(overlay.transform, false);
+
+        RectTransform dialogRect = dialog.AddComponent<RectTransform>();
+        dialogRect.anchorMin = new Vector2(0.5f, 0.5f);
+        dialogRect.anchorMax = new Vector2(0.5f, 0.5f);
+        dialogRect.pivot = new Vector2(0.5f, 0.5f);
+        dialogRect.anchoredPosition = Vector2.zero;
+        dialogRect.sizeDelta = new Vector2(320, 170);
+
+        Image panelImage = dialog.AddComponent<Image>();
+        panelImage.color = new Color(0.98f, 0.97f, 0.9f, 1f);
+
+        CreateTopAnchoredLabel(dialog.transform, "Delete all notes?", font, 20, new Vector2(0, -38), new Vector2(280, 34), Color.black);
+        CreateTopAnchoredLabel(dialog.transform, "This cannot be undone.", font, 15, new Vector2(0, -76), new Vector2(280, 28), new Color(0.35f, 0.12f, 0.12f, 1f));
+        CreateButton(dialog.transform, "Cancel", font, new Vector2(-78, -126), new Vector2(112, 38), HideDeleteAllNotesConfirmDialog, new Color(0.95f, 0.95f, 0.86f, 1f), Color.black, 15);
+        CreateButton(dialog.transform, "Delete", font, new Vector2(78, -126), new Vector2(112, 38), ConfirmClearAllData, new Color(0.72f, 0.12f, 0.12f, 1f), Color.white, 15);
+
+        overlay.SetActive(false);
+        return overlay;
     }
 
     private static Text CreateRowLabel(Transform parent, string text, Font font, float y)
@@ -984,30 +1541,20 @@ public class NoteEditPanel : MonoBehaviour
 
         Toggle toggle = obj.AddComponent<Toggle>();
         toggle.targetGraphic = background;
-        GameObject track = new GameObject("SwitchTrack");
-        track.transform.SetParent(obj.transform, false);
-        RectTransform trackRect = track.AddComponent<RectTransform>();
-        trackRect.anchorMin = new Vector2(1f, 0.5f);
-        trackRect.anchorMax = new Vector2(1f, 0.5f);
-        trackRect.sizeDelta = new Vector2(58, 30);
-        trackRect.anchoredPosition = new Vector2(-30, 0);
-        Image trackImage = track.AddComponent<Image>();
-        trackImage.color = new Color(0.82f, 0.82f, 0.76f, 1f);
-        trackImage.raycastTarget = false;
 
-        GameObject checkmark = new GameObject("SwitchOn");
-        checkmark.transform.SetParent(obj.transform, false);
-        RectTransform checkRect = checkmark.AddComponent<RectTransform>();
-        checkRect.anchorMin = new Vector2(1f, 0.5f);
-        checkRect.anchorMax = new Vector2(1f, 0.5f);
-        checkRect.sizeDelta = new Vector2(58, 30);
-        checkRect.anchoredPosition = new Vector2(-30, 0);
-        Image checkImage = checkmark.AddComponent<Image>();
-        checkImage.color = new Color(0.24f, 0.76f, 0.34f, 1f);
-        checkImage.raycastTarget = false;
-        toggle.graphic = checkImage;
+        Image checkbox = CreateChildImage(obj.transform, "ReminderCheckbox", new Vector2(18, 18), Color.white);
+        checkbox.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.anchorMax = new Vector2(0f, 0.5f);
+        checkbox.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+        checkbox.rectTransform.anchoredPosition = new Vector2(18, 0);
+        Outline checkboxOutline = checkbox.gameObject.AddComponent<Outline>();
+        checkboxOutline.effectColor = new Color(0.18f, 0.2f, 0.18f, 1f);
+        checkboxOutline.effectDistance = new Vector2(1f, -1f);
+        GameObject checkmark = CreateCheckmarkGraphic(checkbox.transform);
+        checkmark.name = "ReminderCheckmark";
+        checkmark.SetActive(false);
 
-        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleLeft, new Vector2(0, 0), new Vector2(-54, 0));
+        CreateCenteredChildLabel(obj.transform, label, font, 15, Color.black, TextAnchor.MiddleCenter, new Vector2(30, 0), Vector2.zero);
         return toggle;
     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 #if UNITY_ANDROID
@@ -11,6 +12,10 @@ public class SpeechToTextManager : MonoBehaviour
 
     private Action<string> resultCallback;
     private Action<string> errorCallback;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private PermissionCallbacks microphonePermissionCallbacks;
+#endif
 
     public bool IsListening { get; private set; }
 
@@ -28,34 +33,78 @@ public class SpeechToTextManager : MonoBehaviour
 
     public void StartDictation(Action<string> onResult, Action<string> onError)
     {
+        if (IsListening)
+            StopDictation();
+
         resultCallback = onResult;
         errorCallback = onError;
 
 #if UNITY_ANDROID && !UNITY_EDITOR
         if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
         {
-            Permission.RequestUserPermission(Permission.Microphone);
-            OnSpeechError("Microphone permission requested. Tap dictation again after granting permission.");
+            RequestMicrophonePermission();
             return;
         }
 
+        BeginAndroidDictation();
+#else
+        OnSpeechError("Speech-to-text requires an Android device with Google speech recognition.");
+#endif
+    }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private void RequestMicrophonePermission()
+    {
+        microphonePermissionCallbacks = new PermissionCallbacks();
+        microphonePermissionCallbacks.PermissionGranted += permission =>
+        {
+            microphonePermissionCallbacks = null;
+            if (permission == Permission.Microphone)
+                StartCoroutine(BeginAndroidDictationAfterPermissionResume());
+        };
+        microphonePermissionCallbacks.PermissionDenied += permission =>
+        {
+            microphonePermissionCallbacks = null;
+            if (permission == Permission.Microphone)
+                OnSpeechError("Microphone permission denied. Enable microphone permission in Android settings to use dictation.");
+        };
+        microphonePermissionCallbacks.PermissionDeniedAndDontAskAgain += permission =>
+        {
+            microphonePermissionCallbacks = null;
+            if (permission == Permission.Microphone)
+                OnSpeechError("Microphone permission is blocked. Enable microphone permission in Android settings to use dictation.");
+        };
+
+        Permission.RequestUserPermission(Permission.Microphone, microphonePermissionCallbacks);
+    }
+
+    private void BeginAndroidDictation()
+    {
         try
         {
+            string callbackObjectName = gameObject.name;
             using (AndroidJavaClass bridge = new AndroidJavaClass("com.arnote.speech.SpeechRecognizerBridge"))
             {
-                bridge.CallStatic("startListening", gameObject.name, "OnSpeechResult", "OnSpeechError");
+                string bridgeVersion = bridge.CallStatic<string>("getBridgeVersion");
+                Debug.Log("Using Android speech bridge " + bridgeVersion + ".");
+                bridge.CallStatic("startListening", callbackObjectName, "OnSpeechResult", "OnSpeechError");
             }
 
             IsListening = true;
+            Debug.Log("Started Android speech recognition on " + callbackObjectName + ".");
         }
         catch (Exception ex)
         {
             OnSpeechError("Speech recognition failed to start: " + ex.Message);
         }
-#else
-        OnSpeechError("Speech-to-text requires an Android device with Google speech recognition.");
-#endif
     }
+
+    private IEnumerator BeginAndroidDictationAfterPermissionResume()
+    {
+        yield return new WaitForSecondsRealtime(0.35f);
+        BeginAndroidDictation();
+    }
+#endif
 
     public void StopDictation()
     {
@@ -78,6 +127,7 @@ public class SpeechToTextManager : MonoBehaviour
     public void OnSpeechResult(string text)
     {
         IsListening = false;
+        Debug.Log("Android speech recognition returned text.");
         if (string.IsNullOrWhiteSpace(text))
         {
             OnSpeechError("Speech recognition returned no text.");
