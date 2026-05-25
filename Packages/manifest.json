@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
     "com.ptc.vuforia.engine": "file:com.ptc.vuforia.engine-11.4.4.tgz",
     "com.unity.collab-proxy": "2.5.2",
     "com.unity.feature.development": "1.0.1",
