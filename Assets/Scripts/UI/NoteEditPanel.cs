@@ -79,10 +79,31 @@ public class NoteEditPanel : MonoBehaviour
     private static readonly string[] PriorityIds = { "low", "medium", "high" };
     private static readonly string[] MonthNames = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     private const float SpeechTapDebounceSeconds = 0.6f;
+    private const float EditPanelBaseWidth = 430f;
+    private const float EditPanelBaseHeight = 785f;
+    private const float EditPanelSafeAreaMargin = 16f;
+    private const float EditPanelTopMargin = 32f;
+    private const float EditPanelMaxScale = 0.94f;
+    private const float LauncherSafeAreaMargin = 12f;
+    private const float LauncherLeftColumnX = -160f;
+    private const float LauncherRightColumnX = 160f;
+    private const float CanvasReferenceWidth = 430f;
+    private const float CanvasReferenceHeight = 932f;
 
     private void Awake()
     {
         InitializePrefabUiIfAvailable();
+        ApplyResponsiveLayout();
+    }
+
+    private void OnEnable()
+    {
+        ApplyResponsiveLayout();
+    }
+
+    private void OnRectTransformDimensionsChange()
+    {
+        ApplyResponsiveLayout();
     }
 
     public static NoteEditPanel EnsureExists()
@@ -98,7 +119,7 @@ public class NoteEditPanel : MonoBehaviour
         Canvas canvas = canvasObject.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 50;
-        canvasObject.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        ConfigureCanvasScaler(canvasObject.AddComponent<CanvasScaler>());
         canvasObject.AddComponent<GraphicRaycaster>();
         EnsureEventSystem();
 
@@ -108,6 +129,7 @@ public class NoteEditPanel : MonoBehaviour
         panel.BuildUi(panelObject.transform);
         panel.gameObject.SetActive(false);
         panel.launcherRoot = CreateLauncher(canvasObject.transform, panel);
+        panel.ApplyResponsiveLayout();
         return panel;
     }
 
@@ -140,6 +162,7 @@ public class NoteEditPanel : MonoBehaviour
         UpdateSpeechStatus("");
 
         gameObject.SetActive(true);
+        ApplyResponsiveLayout();
         SetLauncherVisible(false);
     }
 
@@ -166,6 +189,7 @@ public class NoteEditPanel : MonoBehaviour
         UpdateSpeechStatus("");
 
         gameObject.SetActive(true);
+        ApplyResponsiveLayout();
         SetLauncherVisible(false);
     }
 
@@ -429,6 +453,7 @@ public class NoteEditPanel : MonoBehaviour
             });
 
         ConfigureEditPanelProductStyle();
+        ApplyResponsiveLayout();
         UpdateReminderToggleVisuals();
         prefabUiInitialized = true;
     }
@@ -799,11 +824,11 @@ public class NoteEditPanel : MonoBehaviour
         rect.anchorMax = Vector2.one;
         rect.offsetMin = Vector2.zero;
         rect.offsetMax = Vector2.zero;
-        panel.testMenuButton = CreateButton(launcher.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), panel.ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
-        panel.createNoteButton = CreateButton(launcher.transform, "Create Note", font, new Vector2(-230, -84), new Vector2(120, 40), panel.CreateCenterScreenNote);
-        panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(-230, -132), new Vector2(120, 40), panel.OpenSelected);
-        panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(160, -40), new Vector2(150, 40), panel.OpenHistory);
-        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(160, -88), new Vector2(150, 40), panel.RequestClearAllData);
+        panel.testMenuButton = CreateButton(launcher.transform, "Test Menu", font, new Vector2(LauncherLeftColumnX, -40), new Vector2(150, 40), panel.ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+        panel.createNoteButton = CreateButton(launcher.transform, "Create Note", font, new Vector2(LauncherLeftColumnX, -84), new Vector2(120, 40), panel.CreateCenterScreenNote);
+        panel.editNoteButton = CreateButton(launcher.transform, "Edit Note", font, new Vector2(LauncherLeftColumnX, -132), new Vector2(120, 40), panel.OpenSelected);
+        panel.noteHistoryButton = CreateButton(launcher.transform, "Note History", font, new Vector2(LauncherRightColumnX, -40), new Vector2(150, 40), panel.OpenHistory);
+        panel.clearDbButton = CreateButton(launcher.transform, "Delete All Notes", font, new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40), panel.RequestClearAllData);
         panel.launcherRoot = launcher;
         panel.ConfigureLauncherButtons();
         return launcher;
@@ -889,7 +914,10 @@ public class NoteEditPanel : MonoBehaviour
             HideDeleteAllNotesConfirmDialog();
 
         if (launcherRoot != null)
+        {
             launcherRoot.SetActive(visible);
+            ApplyLauncherSafeArea();
+        }
     }
 
     private void ConfigureLauncherButtons()
@@ -903,16 +931,16 @@ public class NoteEditPanel : MonoBehaviour
             testMenuButton = FindLauncherButton("Test MenuButton");
 
         if (testMenuButton == null)
-            testMenuButton = CreateButton(launcherRoot.transform, "Test Menu", font, new Vector2(-230, -40), new Vector2(150, 40), ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
+            testMenuButton = CreateButton(launcherRoot.transform, "Test Menu", font, new Vector2(LauncherLeftColumnX, -40), new Vector2(150, 40), ToggleTestMenu, new Color(0.95f, 0.95f, 0.95f, 1f), Color.black, 14);
 
         ConfigureButton(testMenuButton, ToggleTestMenu);
         ConfigureButton(clearDbButton, RequestClearAllData);
 
-        ConfigureLauncherButton(createNoteButton, "Create Note", new Vector2(-230, -84), new Vector2(120, 40));
-        ConfigureLauncherButton(editNoteButton, "Edit Note", new Vector2(-230, -132), new Vector2(120, 40));
-        ConfigureLauncherButton(noteHistoryButton, "Note History", new Vector2(160, -40), new Vector2(150, 40));
-        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(160, -88), new Vector2(150, 40));
-        ConfigureLauncherButton(testMenuButton, "Test Menu", new Vector2(-230, -40), new Vector2(150, 40));
+        ConfigureLauncherButton(createNoteButton, "Create Note", new Vector2(LauncherLeftColumnX, -84), new Vector2(120, 40));
+        ConfigureLauncherButton(editNoteButton, "Edit Note", new Vector2(LauncherLeftColumnX, -132), new Vector2(120, 40));
+        ConfigureLauncherButton(noteHistoryButton, "Note History", new Vector2(LauncherRightColumnX, -40), new Vector2(150, 40));
+        ConfigureLauncherButton(clearDbButton, "Delete All Notes", new Vector2(LauncherRightColumnX, -88), new Vector2(150, 40));
+        ConfigureLauncherButton(testMenuButton, "Test Menu", new Vector2(LauncherLeftColumnX, -40), new Vector2(150, 40));
         SetTestMenuOpen(false);
     }
 
@@ -1021,6 +1049,122 @@ public class NoteEditPanel : MonoBehaviour
 
         if (editNoteButton != null)
             editNoteButton.gameObject.SetActive(testMenuOpen);
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            return;
+
+        ConfigureCanvasScaler(canvas.GetComponent<CanvasScaler>());
+        ApplyEditPanelSafeArea(canvas);
+        ApplyLauncherSafeArea(canvas);
+    }
+
+    private void ApplyEditPanelSafeArea(Canvas canvas)
+    {
+        RectTransform panelRect = GetEditablePanelRect();
+        RectTransform canvasRect = canvas == null ? null : canvas.GetComponent<RectTransform>();
+        if (panelRect == null || canvasRect == null || Screen.width <= 0 || Screen.height <= 0)
+            return;
+
+        panelRect.anchorMin = new Vector2(0.5f, 1f);
+        panelRect.anchorMax = new Vector2(0.5f, 1f);
+        panelRect.pivot = new Vector2(0.5f, 1f);
+        panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, EditPanelBaseWidth);
+        panelRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, EditPanelBaseHeight);
+
+        Rect canvasSafeArea = GetSafeAreaInCanvasUnits(canvasRect.rect.size, Screen.safeArea);
+        float availableWidth = Mathf.Max(1f, canvasSafeArea.width - EditPanelSafeAreaMargin * 2f);
+        float availableHeight = Mathf.Max(1f, canvasSafeArea.height - EditPanelSafeAreaMargin * 2f);
+        float panelWidth = GetLayoutWidth(panelRect, EditPanelBaseWidth);
+        float panelHeight = GetLayoutHeight(panelRect, EditPanelBaseHeight);
+        float scale = Mathf.Min(EditPanelMaxScale, availableWidth / panelWidth, availableHeight / panelHeight);
+        float topInset = canvasRect.rect.height - canvasSafeArea.yMax;
+
+        panelRect.anchoredPosition = new Vector2(canvasSafeArea.center.x - canvasRect.rect.width * 0.5f, -topInset - EditPanelTopMargin);
+        panelRect.localScale = new Vector3(scale, scale, 1f);
+    }
+
+    private void ApplyLauncherSafeArea()
+    {
+        Canvas canvas = launcherRoot == null ? null : launcherRoot.GetComponentInParent<Canvas>();
+        ApplyLauncherSafeArea(canvas);
+    }
+
+    private void ApplyLauncherSafeArea(Canvas canvas)
+    {
+        if (launcherRoot == null || canvas == null || Screen.width <= 0 || Screen.height <= 0)
+            return;
+
+        RectTransform launcherRect = launcherRoot.GetComponent<RectTransform>();
+        RectTransform canvasRect = canvas.GetComponent<RectTransform>();
+        if (launcherRect == null || canvasRect == null)
+            return;
+
+        Rect canvasSafeArea = GetSafeAreaInCanvasUnits(canvasRect.rect.size, Screen.safeArea);
+        float topInset = canvasRect.rect.height - canvasSafeArea.yMax;
+        launcherRect.anchorMin = Vector2.zero;
+        launcherRect.anchorMax = Vector2.one;
+        launcherRect.offsetMin = new Vector2(canvasSafeArea.xMin + LauncherSafeAreaMargin, canvasSafeArea.yMin + LauncherSafeAreaMargin);
+        launcherRect.offsetMax = new Vector2(-(canvasRect.rect.width - canvasSafeArea.xMax) - LauncherSafeAreaMargin, -topInset - LauncherSafeAreaMargin);
+    }
+
+    private RectTransform GetEditablePanelRect()
+    {
+        if (panelBackground != null)
+            return panelBackground.rectTransform;
+
+        if (serializedPanelBackground != null)
+            return serializedPanelBackground.rectTransform;
+
+        return GetComponent<RectTransform>();
+    }
+
+    private static Rect GetSafeAreaInCanvasUnits(Vector2 canvasSize, Rect safeArea)
+    {
+        float width = Mathf.Max(1f, Screen.width);
+        float height = Mathf.Max(1f, Screen.height);
+        float xMin = safeArea.xMin / width * canvasSize.x;
+        float xMax = safeArea.xMax / width * canvasSize.x;
+        float yMin = safeArea.yMin / height * canvasSize.y;
+        float yMax = safeArea.yMax / height * canvasSize.y;
+
+        return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+    }
+
+    private static float GetLayoutWidth(RectTransform rect, float fallback)
+    {
+        if (rect.sizeDelta.x > 0f)
+            return rect.sizeDelta.x;
+
+        if (rect.rect.width > 0f)
+            return rect.rect.width;
+
+        return fallback;
+    }
+
+    private static float GetLayoutHeight(RectTransform rect, float fallback)
+    {
+        if (rect.sizeDelta.y > 0f)
+            return rect.sizeDelta.y;
+
+        if (rect.rect.height > 0f)
+            return rect.rect.height;
+
+        return fallback;
+    }
+
+    private static void ConfigureCanvasScaler(CanvasScaler scaler)
+    {
+        if (scaler == null)
+            return;
+
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(CanvasReferenceWidth, CanvasReferenceHeight);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+        scaler.matchWidthOrHeight = 0.5f;
     }
 
     private void ConfigureEditPanelProductStyle()
