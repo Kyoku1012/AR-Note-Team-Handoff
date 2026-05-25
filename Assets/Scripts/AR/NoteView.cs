@@ -20,6 +20,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
     private const float SelectionWidth = 0.35f;
     private const float SelectionHeight = 0.35f;
+    private const float SelectionVerticalOffset = 0.03f;
     private const float SelectionColliderDepth = 0.04f;
 
     public void Initialize(NoteData data, GameObject anchorRoot, bool selectOnCreate = true)
@@ -298,10 +299,10 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
 
         const float halfWidth = SelectionWidth * 0.5f;
         const float halfHeight = SelectionHeight * 0.5f;
-        selectionFrame.SetPosition(0, new Vector3(-halfWidth, 0f, -halfHeight));
-        selectionFrame.SetPosition(1, new Vector3(-halfWidth, 0f, halfHeight));
-        selectionFrame.SetPosition(2, new Vector3(halfWidth, 0f, halfHeight));
-        selectionFrame.SetPosition(3, new Vector3(halfWidth, 0f, -halfHeight));
+        selectionFrame.SetPosition(0, new Vector3(-halfWidth, 0f, SelectionVerticalOffset - halfHeight));
+        selectionFrame.SetPosition(1, new Vector3(-halfWidth, 0f, SelectionVerticalOffset + halfHeight));
+        selectionFrame.SetPosition(2, new Vector3(halfWidth, 0f, SelectionVerticalOffset + halfHeight));
+        selectionFrame.SetPosition(3, new Vector3(halfWidth, 0f, SelectionVerticalOffset - halfHeight));
         selectionFrame.gameObject.SetActive(false);
     }
 
@@ -313,7 +314,7 @@ public class NoteView : MonoBehaviour, IPointerClickHandler
         if (noteCollider == null)
             return;
 
-        noteCollider.center = new Vector3(0f, 0f, 0f);
+        noteCollider.center = new Vector3(0f, SelectionVerticalOffset, 0f);
         noteCollider.size = new Vector3(SelectionWidth, SelectionHeight, SelectionColliderDepth);
     }
 
