@@ -34,16 +34,17 @@ The planned objectives were:
 
 The final project achieved these goals through the following completed features:
 
-| Planned goal | Final outcome | Evidence in project |
-| --- | --- | --- |
-| AR note placement | Implemented through Vuforia hit testing and runtime note anchors | `Assets/Scripts/AR/PlaceNote.cs` |
-| Editor fallback note creation | Implemented through center-screen note creation | `PlaceNote.CreateCenterScreenNote()` |
-| CRUD task management | Implemented through centralized note registry | `Assets/Scripts/Managers/NoteManager.cs` |
-| Local persistence | Implemented using JSON saved to `Application.persistentDataPath/ar_notes.json` | `Assets/Scripts/Managers/DatabaseManager.cs` |
-| Note visual display | Implemented through note prefab adapter and automatic refresh | `Assets/Scripts/AR/NoteView.cs` |
-| Styling | Implemented with colors, icons, and priorities | `Assets/Scripts/Styling/NoteStyleManager.cs` and `StylePanelController.cs` |
-| Reminders | Implemented with Android notifications, repeat rules, snooze, and dismiss support | `Assets/Scripts/Managers/ReminderManager.cs` and `AlarmManager.cs` |
-| Speech-to-text | Implemented using Android speech recognition bridge | `Assets/Scripts/Managers/SpeechToTextManager.cs` and `Assets/Plugins/Android/SpeechRecognizerBridge.java` |
+
+| Planned goal                  | Final outcome                                                                     | Evidence in project                                                                                       |
+| ----------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| AR note placement             | Implemented through Vuforia hit testing and runtime note anchors                  | `Assets/Scripts/AR/PlaceNote.cs`                                                                          |
+| Editor fallback note creation | Implemented through center-screen note creation                                   | `PlaceNote.CreateCenterScreenNote()`                                                                      |
+| CRUD task management          | Implemented through centralized note registry                                     | `Assets/Scripts/Managers/NoteManager.cs`                                                                  |
+| Local persistence             | Implemented using JSON saved to`Application.persistentDataPath/ar_notes.json`     | `Assets/Scripts/Managers/DatabaseManager.cs`                                                              |
+| Note visual display           | Implemented through note prefab adapter and automatic refresh                     | `Assets/Scripts/AR/NoteView.cs`                                                                           |
+| Styling                       | Implemented with colors, icons, and priorities                                    | `Assets/Scripts/Styling/NoteStyleManager.cs` and `StylePanelController.cs`                                |
+| Reminders                     | Implemented with Android notifications, repeat rules, snooze, and dismiss support | `Assets/Scripts/Managers/ReminderManager.cs` and `AlarmManager.cs`                                        |
+| Speech-to-text                | Implemented using Android speech recognition bridge                               | `Assets/Scripts/Managers/SpeechToTextManager.cs` and `Assets/Plugins/Android/SpeechRecognizerBridge.java` |
 
 Overall, the project successfully produced a functional AR task note prototype. Some features, such as AR tracking, microphone input, speech recognition, and notification delivery, require real Android device testing because they depend on physical sensors and Android runtime permissions.
 
@@ -55,18 +56,19 @@ Overall, the project successfully produced a functional AR task note prototype. 
 
 The application was developed as a Unity Android project. The main development technologies were:
 
-| Category | Technology |
-| --- | --- |
-| Game engine and editor | Unity 2021.3.45f2 |
-| Main programming language | C# |
-| AR SDK | Vuforia Engine, including Ground Plane and `PlaneFinderBehaviour` |
-| Mobile platform | Android |
-| Android native integration | Java plugin through `Assets/Plugins/Android` |
-| UI system | Unity UI, TextMeshPro, runtime canvas elements |
-| Persistence | Unity `JsonUtility`, local file I/O, `Application.persistentDataPath` |
-| Notifications | Unity Mobile Notifications package for Android |
-| Speech input | Android `SpeechRecognizer` through a Java bridge |
-| Collaboration | Git/GitHub repository handoff workflow |
+
+| Category                   | Technology                                                           |
+| -------------------------- | -------------------------------------------------------------------- |
+| Game engine and editor     | Unity 2021.3.45f2                                                    |
+| Main programming language  | C#                                                                   |
+| AR SDK                     | Vuforia Engine, including Ground Plane and`PlaneFinderBehaviour`     |
+| Mobile platform            | Android                                                              |
+| Android native integration | Java plugin through`Assets/Plugins/Android`                          |
+| UI system                  | Unity UI, TextMeshPro, runtime canvas elements                       |
+| Persistence                | Unity`JsonUtility`, local file I/O, `Application.persistentDataPath` |
+| Notifications              | Unity Mobile Notifications package for Android                       |
+| Speech input               | Android`SpeechRecognizer` through a Java bridge                      |
+| Collaboration              | Git/GitHub repository handoff workflow                               |
 
 #### 4.2 System Architecture
 
@@ -287,16 +289,17 @@ flowchart TD
 
 #### 4.7 Storyboard
 
-| Scene | User action | System response |
-| --- | --- | --- |
-| 1 | User opens the app | Camera-based AR scene starts |
-| 2 | User moves phone over a surface | Vuforia detects trackable ground plane |
-| 3 | User taps the detected surface | A sticky note appears in AR |
-| 4 | User taps the note or Edit button | Runtime edit panel opens |
-| 5 | User enters title/content or taps microphone | Text is saved or appended from speech recognition |
-| 6 | User selects color/icon/priority | Note style updates visually |
-| 7 | User sets a reminder | Android notification is scheduled |
-| 8 | User restarts the app | Saved notes are restored from JSON with position and styling |
+
+| Scene | User action                                  | System response                                              |
+| ----- | -------------------------------------------- | ------------------------------------------------------------ |
+| 1     | User opens the app                           | Camera-based AR scene starts                                 |
+| 2     | User moves phone over a surface              | Vuforia detects trackable ground plane                       |
+| 3     | User taps the detected surface               | A sticky note appears in AR                                  |
+| 4     | User taps the note or Edit button            | Runtime edit panel opens                                     |
+| 5     | User enters title/content or taps microphone | Text is saved or appended from speech recognition            |
+| 6     | User selects color/icon/priority             | Note style updates visually                                  |
+| 7     | User sets a reminder                         | Android notification is scheduled                            |
+| 8     | User restarts the app                        | Saved notes are restored from JSON with position and styling |
 
 ## Member 3: Testing, Debugging, and User Evaluation
 
@@ -319,16 +322,17 @@ The Unity Editor test flow was:
 
 #### 5.2 Functional Test Cases
 
-| Test case | Expected result | Pass criteria |
-| --- | --- | --- |
-| Create note | New note appears in AR/editor scene | Note prefab is visible and selected |
-| Edit note | User can update title and content | Reopened note shows latest text |
-| Delete note | Selected note is removed | Note disappears and is removed from saved data |
-| Complete note | Note can be marked completed | Title displays completion state and visibility is updated |
-| Style note | Color, icon, and priority can be changed | Visual style matches selected data |
-| Save/load | Notes persist after restart | Notes are restored from `ar_notes.json` |
-| Reminder | Future reminder is scheduled | Android notification appears at selected time |
-| Speech-to-text | Speech text is appended to note content | Recognized text appears in content field |
+
+| Test case      | Expected result                          | Pass criteria                                             |
+| -------------- | ---------------------------------------- | --------------------------------------------------------- |
+| Create note    | New note appears in AR/editor scene      | Note prefab is visible and selected                       |
+| Edit note      | User can update title and content        | Reopened note shows latest text                           |
+| Delete note    | Selected note is removed                 | Note disappears and is removed from saved data            |
+| Complete note  | Note can be marked completed             | Title displays completion state and visibility is updated |
+| Style note     | Color, icon, and priority can be changed | Visual style matches selected data                        |
+| Save/load      | Notes persist after restart              | Notes are restored from`ar_notes.json`                    |
+| Reminder       | Future reminder is scheduled             | Android notification appears at selected time             |
+| Speech-to-text | Speech text is appended to note content  | Recognized text appears in content field                  |
 
 #### 5.3 Device and AR Tracking Testing
 
@@ -345,26 +349,28 @@ Android testing should be performed using this flow:
 
 #### 5.4 Bugs, Root Causes, and Solutions
 
-| Issue | Evidence or symptom | Root cause | Solution implemented |
-| --- | --- | --- | --- |
-| UI taps could accidentally trigger AR placement | Touching UI could create a note behind the panel | AR touch handling did not fully separate UI raycasts from plane hit tests | `PlaceNote.HandleBlockingUiTap()` checks UI elements before running Vuforia hit tests |
-| Editor testing depended too much on plane detection | Difficult to test CRUD without Android AR tracking | Vuforia Ground Plane requires supported device behavior | `CreateCenterScreenNote()` creates a camera-relative fallback note in Play Mode |
-| Duplicate note IDs could conflict at runtime | Multiple note views could reference the same saved ID | Restored or instantiated notes may share data IDs | `NoteManager.RegisterView()` detects duplicate IDs and assigns a new GUID |
-| Reminder time could be in the past | Notification would not fire correctly | User-selected time may be earlier than current device time | `NoteEditPanel.Save()` moves invalid past reminders to at least one minute in the future |
-| Android speech recognition may fail without permission | Dictation does not start | Microphone permission is required by Android | `SpeechToTextManager` requests microphone permission before starting dictation |
-| Speech recognizer resources could remain active | Repeated speech input could become busy | Android recognizer must be stopped and destroyed | `SpeechRecognizerBridge.java` releases the recognizer after results or errors |
+
+| Issue                                                  | Evidence or symptom                                   | Root cause                                                                | Solution implemented                                                                     |
+| ------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| UI taps could accidentally trigger AR placement        | Touching UI could create a note behind the panel      | AR touch handling did not fully separate UI raycasts from plane hit tests | `PlaceNote.HandleBlockingUiTap()` checks UI elements before running Vuforia hit tests    |
+| Editor testing depended too much on plane detection    | Difficult to test CRUD without Android AR tracking    | Vuforia Ground Plane requires supported device behavior                   | `CreateCenterScreenNote()` creates a camera-relative fallback note in Play Mode          |
+| Duplicate note IDs could conflict at runtime           | Multiple note views could reference the same saved ID | Restored or instantiated notes may share data IDs                         | `NoteManager.RegisterView()` detects duplicate IDs and assigns a new GUID                |
+| Reminder time could be in the past                     | Notification would not fire correctly                 | User-selected time may be earlier than current device time                | `NoteEditPanel.Save()` moves invalid past reminders to at least one minute in the future |
+| Android speech recognition may fail without permission | Dictation does not start                              | Microphone permission is required by Android                              | `SpeechToTextManager` requests microphone permission before starting dictation           |
+| Speech recognizer resources could remain active        | Repeated speech input could become busy               | Android recognizer must be stopped and destroyed                          | `SpeechRecognizerBridge.java` releases the recognizer after results or errors            |
 
 Suggested screenshots for appendix:
 
-| Screenshot label | Required evidence |
-| --- | --- |
-| Appendix A | Unity scene with `Create Note`, `Edit Note`, and `Clear DB` buttons |
-| Appendix B | AR note placed on a physical surface |
-| Appendix C | Runtime edit panel with title/content fields |
-| Appendix D | Style selection with color/icon/priority |
-| Appendix E | Android notification generated by a reminder |
-| Appendix F | Speech-to-text result appended to note content |
-| Appendix G | Console/debug log evidence for save/load or error handling |
+
+| Screenshot label | Required evidence                                                  |
+| ---------------- | ------------------------------------------------------------------ |
+| Appendix A       | Unity scene with`Create Note`, `Edit Note`, and `Clear DB` buttons |
+| Appendix B       | AR note placed on a physical surface                               |
+| Appendix C       | Runtime edit panel with title/content fields                       |
+| Appendix D       | Style selection with color/icon/priority                           |
+| Appendix E       | Android notification generated by a reminder                       |
+| Appendix F       | Speech-to-text result appended to note content                     |
+| Appendix G       | Console/debug log evidence for save/load or error handling         |
 
 ### 6. User Evaluation
 
@@ -383,23 +389,25 @@ The recommended user evaluation method is a small usability test with 5-10 parti
 
 #### 6.2 Example Evaluation Metrics
 
-| Metric | Description |
-| --- | --- |
-| Task success rate | Percentage of users who complete the task without assistance |
-| Average completion time | Time needed to create and save a contextual AR note |
-| Ease of placement | User rating for AR note placement |
-| Ease of editing | User rating for note editing UI |
-| Reminder usefulness | User rating for notification/reminder value |
-| Speech input usefulness | User rating for dictation feature |
-| Overall satisfaction | General rating of the application experience |
+
+| Metric                  | Description                                                  |
+| ----------------------- | ------------------------------------------------------------ |
+| Task success rate       | Percentage of users who complete the task without assistance |
+| Average completion time | Time needed to create and save a contextual AR note          |
+| Ease of placement       | User rating for AR note placement                            |
+| Ease of editing         | User rating for note editing UI                              |
+| Reminder usefulness     | User rating for notification/reminder value                  |
+| Speech input usefulness | User rating for dictation feature                            |
+| Overall satisfaction    | General rating of the application experience                 |
 
 #### 6.3 Evaluation Results Template
 
+
 | Participant | Create note | Edit note | Style note | Set reminder | Speech input | Satisfaction /5 | Comments |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P1 | Pass | Pass | Pass | Pass | Pass/Fail |  |  |
-| P2 | Pass | Pass | Pass | Pass | Pass/Fail |  |  |
-| P3 | Pass | Pass | Pass | Pass | Pass/Fail |  |  |
+| ----------- | ----------- | --------- | ---------- | ------------ | ------------ | --------------- | -------- |
+| P1          | Pass        | Pass      | Pass       | Pass         | Pass/Fail    |                 |          |
+| P2          | Pass        | Pass      | Pass       | Pass         | Pass/Fail    |                 |          |
+| P3          | Pass        | Pass      | Pass       | Pass         | Pass/Fail    |                 |          |
 
 The final report should replace this template with collected user results. Based on the current implementation, expected findings include that users can understand the purpose of contextual AR notes quickly, while AR tracking quality may depend strongly on lighting, surface texture, and device support.
 
@@ -475,22 +483,14 @@ Vuforia. (2026). *Introduction to Ground Plane in Unity*. Vuforia Engine Library
 
 #### Appendix B: Technical Evidence Checklist
 
-| Appendix item | Description | File or evidence source |
-| --- | --- | --- |
-| B1 | AR placement script | `Assets/Scripts/AR/PlaceNote.cs` |
-| B2 | Note view adapter | `Assets/Scripts/AR/NoteView.cs` |
-| B3 | Shared note model | `Assets/Scripts/Data/NoteData.cs` |
-| B4 | Note CRUD manager | `Assets/Scripts/Managers/NoteManager.cs` |
-| B5 | JSON persistence | `Assets/Scripts/Managers/DatabaseManager.cs` |
-| B6 | Reminder scheduling | `Assets/Scripts/Managers/ReminderManager.cs`, `AlarmManager.cs` |
-| B7 | Speech-to-text | `Assets/Scripts/Managers/SpeechToTextManager.cs`, `Assets/Plugins/Android/SpeechRecognizerBridge.java` |
-| B8 | Testing checklist | `CRUD_TEST_GUIDE.md`, `SIMULATION_GUIDE.md` |
 
-#### Appendix C: Member Task Distribution Summary
-
-| Member | Main report responsibility | Suggested project evidence |
-| --- | --- | --- |
-| Member 1 | Introduction, motivation, objectives, achievements | README, AR feature overview, references |
-| Member 2 | Methodology, system design, development workflow, diagrams | Core scripts and architecture diagrams |
-| Member 3 | Testing, debugging, user evaluation | Test guides, Android screenshots, bug table, user feedback |
-| Member 4 | Challenges, conclusion, references, appendices | Team handoff document, lessons learned, APA reference list |
+| Appendix item | Description         | File or evidence source                                                                                |
+| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| B1            | AR placement script | `Assets/Scripts/AR/PlaceNote.cs`                                                                       |
+| B2            | Note view adapter   | `Assets/Scripts/AR/NoteView.cs`                                                                        |
+| B3            | Shared note model   | `Assets/Scripts/Data/NoteData.cs`                                                                      |
+| B4            | Note CRUD manager   | `Assets/Scripts/Managers/NoteManager.cs`                                                               |
+| B5            | JSON persistence    | `Assets/Scripts/Managers/DatabaseManager.cs`                                                           |
+| B6            | Reminder scheduling | `Assets/Scripts/Managers/ReminderManager.cs`, `AlarmManager.cs`                                        |
+| B7            | Speech-to-text      | `Assets/Scripts/Managers/SpeechToTextManager.cs`, `Assets/Plugins/Android/SpeechRecognizerBridge.java` |
+| B8            | Testing checklist   | `CRUD_TEST_GUIDE.md`, `SIMULATION_GUIDE.md`                                                            |
