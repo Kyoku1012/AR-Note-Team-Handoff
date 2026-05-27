@@ -17,14 +17,14 @@ public class NoteData
     public string priorityId;
 
     public bool hasReminder;
-    public string reminderTime; // yyyy-MM-dd HH:mm, local device time
+    public string reminderTime; // yyyy-MM-dd HH:mm:ss, local device time
 
     // Legacy scheduler fields kept for saved-data compatibility while reminders are consolidated.
     public bool hasAlarm;
-    public string alarmTime; // yyyy-MM-dd HH:mm, local device time
+    public string alarmTime; // yyyy-MM-dd HH:mm:ss, local device time
     public string alarmRepeatRule; // none, daily, weekly
     public string alarmStatus; // none, scheduled, fired, dismissed, snoozed
-    public string alarmSnoozeUntil; // yyyy-MM-dd HH:mm, local device time
+    public string alarmSnoozeUntil; // yyyy-MM-dd HH:mm:ss, local device time
     public int alarmSnoozeMinutes = 5;
     public string alarmLastFiredTime;
 

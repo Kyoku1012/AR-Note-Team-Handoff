@@ -11,7 +11,8 @@ public class AlarmManager : MonoBehaviour
 {
     public static AlarmManager Instance { get; private set; }
 
-    public const string TimeFormat = "yyyy-MM-dd HH:mm";
+    public const string TimeFormat = "yyyy-MM-dd HH:mm:ss";
+    private const string LegacyTimeFormat = "yyyy-MM-dd HH:mm";
     public const string RepeatNone = "none";
     public const string RepeatDaily = "daily";
     public const string RepeatWeekly = "weekly";
@@ -25,12 +26,21 @@ public class AlarmManager : MonoBehaviour
     private const string LegacyChannelId = "ar_notes_alarms";
     private const string PreviousUrgentChannelId = "ar_notes_urgent_reminders_v1";
     private const string PreviousUrgentChannelIdV2 = "ar_notes_urgent_reminders_v2";
+    private const float ForegroundReminderCheckIntervalSeconds = 1f;
+    private const string NativeReminderSchedulerClass = "com.arnote.reminders.ArNoteExactReminderScheduler";
+    private const string NativeReminderNoteIdExtra = "ar_note_id";
+    private const string NotificationGroup = "ar_notes_reminders";
 
 #if UNITY_ANDROID
     private PermissionRequest permissionRequest;
     private bool exactSchedulingRequestOpened;
     private bool batteryOptimizationRequestOpened;
     private string lastHandledNotificationNoteId;
+    private float nextForegroundReminderCheckTime;
+    private bool permissionStateInitialized;
+    private PermissionStatus lastPostPermissionStatus;
+    private bool lastExactSchedulingState;
+    private float nextPermissionStateCheckTime;
 #endif
 
     private void Awake()
@@ -45,6 +55,7 @@ public class AlarmManager : MonoBehaviour
         RegisterChannel();
 #if UNITY_ANDROID
         ProcessLastNotificationIntent();
+        ProcessExternalReminderIntent();
 #endif
     }
 
@@ -56,18 +67,31 @@ public class AlarmManager : MonoBehaviour
         RegisterChannel();
 #if UNITY_ANDROID
         ProcessLastNotificationIntent();
+        ProcessExternalReminderIntent();
+        RescheduleRemindersIfReady();
+#endif
+    }
 
-        if (AndroidNotificationCenter.UserPermissionToPost == PermissionStatus.Allowed && AndroidNotificationCenter.UsingExactScheduling)
-        {
-            ReminderManager.Instance?.RescheduleAll(NoteManager.Instance?.GetAllNotes());
-            NoteManager.Instance?.SaveNotes();
-        }
+    private void OnApplicationPause(bool pauseStatus)
+    {
+#if UNITY_ANDROID
+        if (!pauseStatus)
+            RescheduleRemindersIfReady();
+#endif
+    }
+
+    private void Update()
+    {
+#if UNITY_ANDROID
+        RescheduleRemindersWhenPermissionStateChanges();
+        DispatchDueForegroundReminders();
 #endif
     }
 
     public static bool TryParseAlarmTime(string value, out DateTime dateTime)
     {
         return DateTime.TryParseExact(value, TimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dateTime)
+            || DateTime.TryParseExact(value, LegacyTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out dateTime)
             || DateTime.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out dateTime);
     }
 
@@ -137,6 +161,7 @@ public class AlarmManager : MonoBehaviour
         int notificationId = GetNotificationId(note.id);
         AndroidNotificationCenter.CancelScheduledNotification(notificationId);
         AndroidNotificationCenter.CancelDisplayedNotification(notificationId);
+        CancelNativeAlarmClock(notificationId);
 #endif
     }
 
@@ -204,16 +229,21 @@ public class AlarmManager : MonoBehaviour
             return false;
         }
 
-        if (!EnsureExactSchedulingReady())
-        {
-            Debug.LogWarning("Exact alarm permission is required for on-time reminders. Grant it and return to the app; reminders will be rescheduled automatically.");
-            return false;
-        }
+        bool exactSchedulingReady = EnsureExactSchedulingReady();
 
         RequestBatteryOptimizationExemptionIfNeeded();
         Cancel(note);
 
         string body = GetNotificationBody(note);
+        if (ScheduleNativeAlarmClock(note, fireTime, body))
+            return true;
+
+        if (!exactSchedulingReady)
+        {
+            Debug.LogWarning("Exact alarm permission is required for on-time reminders. Grant it and return to the app; reminders will be rescheduled automatically.");
+            return false;
+        }
+
         AndroidNotification notification = new AndroidNotification
         {
             Title = GetNotificationTitle(note),
@@ -226,11 +256,12 @@ public class AlarmManager : MonoBehaviour
             ShouldAutoCancel = true,
             ShowTimestamp = true,
             ShowInForeground = true,
-            Group = "ar_notes_reminders",
+            Group = NotificationGroup,
             Color = new Color(1f, 0.82f, 0.12f, 1f)
         };
 
         AndroidNotificationCenter.SendNotificationWithExplicitID(notification, ChannelId, GetNotificationId(note.id));
+        Debug.Log($"Alarm scheduled for {note.title} at {fireTime:O}. Exact={AndroidNotificationCenter.UsingExactScheduling}, BatteryOptimized={!AndroidNotificationCenter.IgnoringBatteryOptimizations}.");
         return true;
 #else
         Debug.Log($"Alarm scheduled for {note.title} at {fireTime}.");
@@ -274,6 +305,211 @@ public class AlarmManager : MonoBehaviour
 
         lastHandledNotificationNoteId = noteId;
         NoteManager.Instance?.OpenNoteFromNotification(noteId);
+    }
+
+    private void ProcessExternalReminderIntent()
+    {
+        AndroidJavaObject activity = GetCurrentActivity();
+        AndroidJavaObject intent = activity?.Call<AndroidJavaObject>("getIntent");
+        if (intent == null)
+            return;
+
+        string noteId = intent.Call<string>("getStringExtra", NativeReminderNoteIdExtra);
+        if (string.IsNullOrWhiteSpace(noteId) || noteId == lastHandledNotificationNoteId)
+            return;
+
+        intent.Call<AndroidJavaObject>("removeExtra", NativeReminderNoteIdExtra);
+        lastHandledNotificationNoteId = noteId;
+        NoteManager.Instance?.OpenNoteFromNotification(noteId);
+    }
+
+    private void RescheduleRemindersIfReady()
+    {
+        if (AndroidNotificationCenter.UserPermissionToPost != PermissionStatus.Allowed)
+            return;
+
+        if (!AndroidNotificationCenter.UsingExactScheduling)
+            EnsureExactSchedulingReady();
+
+        ReminderManager.Instance?.RescheduleAll(NoteManager.Instance?.GetAllNotes());
+        NoteManager.Instance?.SaveNotes();
+    }
+
+    private void RescheduleRemindersWhenPermissionStateChanges()
+    {
+        if (Time.unscaledTime < nextPermissionStateCheckTime)
+            return;
+
+        nextPermissionStateCheckTime = Time.unscaledTime + ForegroundReminderCheckIntervalSeconds;
+
+        PermissionStatus postPermissionStatus = AndroidNotificationCenter.UserPermissionToPost;
+        bool exactSchedulingState = AndroidNotificationCenter.UsingExactScheduling;
+
+        if (permissionStateInitialized
+            && postPermissionStatus == lastPostPermissionStatus
+            && exactSchedulingState == lastExactSchedulingState)
+        {
+            return;
+        }
+
+        permissionStateInitialized = true;
+        lastPostPermissionStatus = postPermissionStatus;
+        lastExactSchedulingState = exactSchedulingState;
+
+        if (postPermissionStatus == PermissionStatus.Allowed)
+            RescheduleRemindersIfReady();
+    }
+
+    private void DispatchDueForegroundReminders()
+    {
+        if (Time.unscaledTime < nextForegroundReminderCheckTime)
+            return;
+
+        nextForegroundReminderCheckTime = Time.unscaledTime + ForegroundReminderCheckIntervalSeconds;
+
+        if (!Application.isFocused || AndroidNotificationCenter.UserPermissionToPost != PermissionStatus.Allowed)
+            return;
+
+        List<NoteData> notes = NoteManager.Instance?.GetAllNotes();
+        if (notes == null)
+            return;
+
+        DateTime now = DateTime.Now;
+        bool changed = false;
+        foreach (NoteData note in notes)
+        {
+            if (!IsDueReminder(note, now, out DateTime fireTime))
+                continue;
+
+            AndroidNotificationCenter.CancelScheduledNotification(GetNotificationId(note.id));
+
+            string repeatRule = NormalizeRepeatRule(note.alarmRepeatRule);
+            if (repeatRule == RepeatNone)
+            {
+                SendImmediateForegroundNotification(note);
+                note.alarmStatus = StatusFired;
+                note.alarmLastFiredTime = FormatAlarmTime(now);
+                SyncReminderFields(note);
+            }
+            else
+            {
+                DateTime nextFireTime = MoveToNextFutureFireTime(note, fireTime);
+                note.alarmTime = FormatAlarmTime(nextFireTime);
+                note.alarmStatus = Schedule(note, nextFireTime)
+                    ? StatusScheduled
+                    : StatusNone;
+                SyncReminderFields(note);
+                SendImmediateForegroundNotification(note);
+            }
+
+            changed = true;
+        }
+
+        if (changed)
+            NoteManager.Instance?.SaveNotes();
+    }
+
+    private bool IsDueReminder(NoteData note, DateTime now, out DateTime fireTime)
+    {
+        fireTime = default;
+        if (note == null || string.IsNullOrWhiteSpace(note.id) || !note.hasReminder || string.IsNullOrWhiteSpace(note.alarmTime))
+            return false;
+
+        string status = string.IsNullOrWhiteSpace(note.alarmStatus) ? StatusScheduled : note.alarmStatus;
+        if (status != StatusScheduled && status != StatusSnoozed)
+            return false;
+
+        return TryParseAlarmTime(note.alarmTime, out fireTime) && fireTime <= now;
+    }
+
+    private void SendImmediateForegroundNotification(NoteData note)
+    {
+        AndroidNotification notification = new AndroidNotification
+        {
+            Title = GetNotificationTitle(note),
+            Text = GetNotificationBody(note),
+            FireTime = DateTime.Now,
+            SmallIcon = "default",
+            LargeIcon = "default",
+            IntentData = note.id,
+            Style = NotificationStyle.BigTextStyle,
+            ShouldAutoCancel = true,
+            ShowTimestamp = true,
+            ShowInForeground = true,
+            Group = NotificationGroup,
+            Color = new Color(1f, 0.82f, 0.12f, 1f)
+        };
+
+        AndroidNotificationCenter.SendNotificationWithExplicitID(notification, ChannelId, GetNotificationId(note.id));
+        Debug.Log($"Foreground reminder dispatched immediately for {note.title}.");
+    }
+
+    private bool ScheduleNativeAlarmClock(NoteData note, DateTime fireTime, string body)
+    {
+        try
+        {
+            AndroidJavaObject activity = GetCurrentActivity();
+            if (activity == null)
+                return false;
+
+            int notificationId = GetNotificationId(note.id);
+            long fireTimeMillis = ToUnixTimeMilliseconds(fireTime);
+            using (AndroidJavaClass scheduler = new AndroidJavaClass(NativeReminderSchedulerClass))
+            {
+                bool scheduled = scheduler.CallStatic<bool>(
+                    "schedule",
+                    activity,
+                    notificationId,
+                    fireTimeMillis,
+                    note.id,
+                    GetNotificationTitle(note),
+                    body,
+                    ChannelId,
+                    NotificationGroup);
+
+                if (scheduled)
+                    Debug.Log($"Native alarm-clock reminder scheduled for {note.title} at {fireTime:O}.");
+
+                return scheduled;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("Native alarm-clock reminder scheduling failed; falling back to Unity notifications. " + ex.Message);
+            return false;
+        }
+    }
+
+    private void CancelNativeAlarmClock(int notificationId)
+    {
+        try
+        {
+            AndroidJavaObject activity = GetCurrentActivity();
+            if (activity == null)
+                return;
+
+            using (AndroidJavaClass scheduler = new AndroidJavaClass(NativeReminderSchedulerClass))
+                scheduler.CallStatic("cancel", activity, notificationId);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning("Native alarm-clock reminder cancel failed. " + ex.Message);
+        }
+    }
+
+    private static long ToUnixTimeMilliseconds(DateTime localDateTime)
+    {
+        DateTime localTime = localDateTime.Kind == DateTimeKind.Local
+            ? localDateTime
+            : DateTime.SpecifyKind(localDateTime, DateTimeKind.Local);
+
+        return new DateTimeOffset(localTime).ToUnixTimeMilliseconds();
+    }
+
+    private static AndroidJavaObject GetCurrentActivity()
+    {
+        using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            return unityPlayer.GetStatic<AndroidJavaObject>("currentActivity");
     }
 #endif
 
