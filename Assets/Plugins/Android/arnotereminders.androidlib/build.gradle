@@ -1,0 +1,32 @@
+plugins {
+    id 'com.android.library'
+}
+
+def getCompileSdk(unityLib) {
+    def unityCompileSdk = unityLib.compileSdkVersion
+    def version = unityCompileSdk.find('\\d+').toInteger()
+    if (version < 33) {
+        return 33
+    }
+    return version
+}
+
+android {
+    if (project.android.hasProperty("namespace")) {
+        namespace "com.arnote.reminders"
+    }
+
+    def unityLib = project(':unityLibrary').extensions.getByName('android')
+    compileSdkVersion getCompileSdk(unityLib)
+    buildToolsVersion unityLib.buildToolsVersion
+
+    defaultConfig {
+        minSdkVersion 23
+        consumerProguardFiles "proguard-rules.pro"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
