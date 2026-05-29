@@ -250,7 +250,15 @@ public class PlaceNote : MonoBehaviour
         GameObject anchorObj = new GameObject(anchorName);
         anchorObj.transform.position = position;
         anchorObj.transform.rotation = rotation;
-        anchorObj.AddComponent<AnchorBehaviour>();
+        AnchorBehaviour anchor = anchorObj.AddComponent<AnchorBehaviour>();
+        try
+        {
+            anchor.ConfigureAnchor(anchorName, position, rotation);
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning("Vuforia anchor configuration failed for " + anchorName + ". Falling back to transform-only placement. " + ex.Message);
+        }
         return anchorObj;
     }
 

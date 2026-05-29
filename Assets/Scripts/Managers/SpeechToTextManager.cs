@@ -48,7 +48,7 @@ public class SpeechToTextManager : MonoBehaviour
 
         BeginAndroidDictation();
 #else
-        OnSpeechError("Speech-to-text requires an Android device with Google speech recognition.");
+        OnSpeechError("Speech-to-text requires an Android device with a speech recognition service.");
 #endif
     }
 

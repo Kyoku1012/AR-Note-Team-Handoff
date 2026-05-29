@@ -1,9 +1,11 @@
 package com.arnote.speech;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -16,7 +18,9 @@ import java.util.ArrayList;
 
 public class SpeechRecognizerBridge {
     private static final String TAG = "ARNoteSpeech";
-    private static final String BRIDGE_VERSION = "xiaomi-service-manual-stop-v1";
+    private static final String BRIDGE_VERSION = "system-speech-fallback-v2";
+    private static final String GOOGLE_SPEECH_PACKAGE = "com.google.android.googlequicksearchbox";
+    private static final String GOOGLE_RECOGNITION_SERVICE = "com.google.android.voicesearch.serviceapi.GoogleRecognitionService";
     private static final String XIAOMI_SPEECH_PACKAGE = "com.xiaomi.mibrain.speech";
     private static final String XIAOMI_ASR_SERVICE = "com.xiaomi.mibrain.speech.asr.AsrService";
     private static final int SPEECH_TIMEOUT_MILLIS = 120000;
@@ -46,16 +50,15 @@ public class SpeechRecognizerBridge {
                     return;
                 }
 
-                ComponentName service = getXiaomiRecognitionService();
-                if (service == null) {
-                    sendError(activeSessionId, "Xiaomi speech recognition service is not available on this device.");
+                releaseRecognizer(false);
+                final SpeechRecognizer activeRecognizer = createSpeechRecognizer();
+                if (activeRecognizer == null) {
+                    launchSpeechRecognitionActivity(activeSessionId);
                     return;
                 }
 
-                releaseRecognizer(false);
-                final SpeechRecognizer activeRecognizer = SpeechRecognizer.createSpeechRecognizer(UnityPlayer.currentActivity, service);
                 recognizer = activeRecognizer;
-                Log.i(TAG, "Starting speech recognition bridge " + BRIDGE_VERSION + " with service: " + service.flattenToShortString());
+                Log.i(TAG, "Starting speech recognition bridge " + BRIDGE_VERSION + ".");
 
                 activeRecognizer.setRecognitionListener(new RecognitionListener() {
                     @Override public void onReadyForSpeech(Bundle params) {}
@@ -75,7 +78,7 @@ public class SpeechRecognizerBridge {
 
                     @Override
                     public void onError(int error) {
-                        Log.w(TAG, "Speech recognizer error " + error + " from Xiaomi service.");
+                        Log.w(TAG, "Speech recognizer error " + error + ".");
                         releaseRecognizer(activeSessionId, activeRecognizer, false);
 
                         if (stopRequested && lastPartialResult != null && lastPartialResult.trim().length() > 0) {
@@ -134,9 +137,9 @@ public class SpeechRecognizerBridge {
 
                 try {
                     recognizer.stopListening();
-                    Log.i(TAG, "Stop requested for Xiaomi speech recognition service.");
+                    Log.i(TAG, "Stop requested for speech recognition service.");
                 } catch (Exception ex) {
-                    Log.w(TAG, "Failed to stop Xiaomi speech recognizer.", ex);
+                    Log.w(TAG, "Failed to stop speech recognizer.", ex);
                     releaseRecognizer(false);
                 }
             }
@@ -147,15 +150,69 @@ public class SpeechRecognizerBridge {
         return BRIDGE_VERSION;
     }
 
-    private static ComponentName getXiaomiRecognitionService() {
-        ComponentName service = new ComponentName(XIAOMI_SPEECH_PACKAGE, XIAOMI_ASR_SERVICE);
+    private static SpeechRecognizer createSpeechRecognizer() {
+        if (isXiaomiFamilyDevice()) {
+            SpeechRecognizer xiaomiRecognizer = createSpeechRecognizerForService(new ComponentName(XIAOMI_SPEECH_PACKAGE, XIAOMI_ASR_SERVICE));
+            if (xiaomiRecognizer != null) {
+                return xiaomiRecognizer;
+            }
+        }
+
+        try {
+            if (SpeechRecognizer.isRecognitionAvailable(UnityPlayer.currentActivity)) {
+                Log.i(TAG, "Using default system speech recognition service.");
+                return SpeechRecognizer.createSpeechRecognizer(UnityPlayer.currentActivity);
+            }
+        } catch (Exception ex) {
+            Log.w(TAG, "Default speech recognition service unavailable.", ex);
+        }
+
+        SpeechRecognizer googleRecognizer = createSpeechRecognizerForService(
+            new ComponentName(GOOGLE_SPEECH_PACKAGE, GOOGLE_RECOGNITION_SERVICE));
+        if (googleRecognizer != null) {
+            return googleRecognizer;
+        }
+
+        return isXiaomiFamilyDevice()
+            ? null
+            : createSpeechRecognizerForService(new ComponentName(XIAOMI_SPEECH_PACKAGE, XIAOMI_ASR_SERVICE));
+    }
+
+    private static SpeechRecognizer createSpeechRecognizerForService(ComponentName service) {
         try {
             UnityPlayer.currentActivity.getPackageManager().getServiceInfo(service, 0);
-            return service;
+            Log.i(TAG, "Using speech recognition service: " + service.flattenToShortString());
+            return SpeechRecognizer.createSpeechRecognizer(UnityPlayer.currentActivity, service);
         } catch (Exception ex) {
-            Log.w(TAG, "Xiaomi recognition service unavailable.", ex);
+            Log.w(TAG, "Speech recognition service unavailable: " + service.flattenToShortString(), ex);
             return null;
         }
+    }
+
+    private static void launchSpeechRecognitionActivity(int activeSessionId) {
+        try {
+            Intent intent = new Intent(UnityPlayer.currentActivity, SpeechRecognizerBridgeActivity.class);
+            intent.putExtra("unityObjectName", unityObjectName);
+            intent.putExtra("resultMethodName", resultMethodName);
+            intent.putExtra("errorMethodName", errorMethodName);
+            UnityPlayer.currentActivity.startActivity(intent);
+            Log.i(TAG, "Started speech recognition activity fallback.");
+        } catch (ActivityNotFoundException ex) {
+            sendError(activeSessionId, "Speech recognition is not available on this device. Install or enable a speech recognition service.");
+        } catch (Exception ex) {
+            sendError(activeSessionId, "Speech recognition failed to start: " + ex.getMessage());
+        }
+    }
+
+    private static boolean isXiaomiFamilyDevice() {
+        String manufacturer = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase();
+        String brand = Build.BRAND == null ? "" : Build.BRAND.toLowerCase();
+        return manufacturer.contains("xiaomi")
+            || manufacturer.contains("redmi")
+            || manufacturer.contains("poco")
+            || brand.contains("xiaomi")
+            || brand.contains("redmi")
+            || brand.contains("poco");
     }
 
     private static String firstResult(Bundle results) {
@@ -225,7 +282,7 @@ public class SpeechRecognizerBridge {
             case SpeechRecognizer.ERROR_CLIENT:
                 return "Speech recognition client error (code " + error + "). Try dictation again.";
             case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
-                return "Speech recognition service does not have microphone permission (code " + error + "). Check Xiaomi speech and this app's microphone permissions.";
+                return "Speech recognition service does not have microphone permission (code " + error + "). Check this app and your phone's speech service microphone permissions.";
             case SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED:
                 return "Speech recognition language is not supported on this device (code " + error + ").";
             case SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE:

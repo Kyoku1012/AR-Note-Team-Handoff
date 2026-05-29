@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.util.Log;
@@ -23,6 +24,7 @@ public class SpeechRecognizerBridgeActivity extends Activity {
     private String unityObjectName;
     private String resultMethodName;
     private String errorMethodName;
+    private boolean triedXiaomiPackage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,7 +35,9 @@ public class SpeechRecognizerBridgeActivity extends Activity {
         resultMethodName = launchIntent.getStringExtra("resultMethodName");
         errorMethodName = launchIntent.getStringExtra("errorMethodName");
 
-        startRecognition(getPreferredSpeechPackage());
+        String xiaomiPackage = isXiaomiFamilyDevice() ? getXiaomiSpeechPackage() : null;
+        triedXiaomiPackage = xiaomiPackage != null;
+        startRecognition(xiaomiPackage);
     }
 
     private void startRecognition(String packageName) {
@@ -54,6 +58,15 @@ public class SpeechRecognizerBridgeActivity extends Activity {
             Log.i(TAG, "Starting speech recognition activity with package: " + (packageName == null ? "system-default" : packageName));
             startActivityForResult(intent, REQUEST_RECOGNIZE_SPEECH);
         } catch (ActivityNotFoundException ex) {
+            if (packageName == null && !triedXiaomiPackage) {
+                String xiaomiPackage = getXiaomiSpeechPackage();
+                if (xiaomiPackage != null) {
+                    triedXiaomiPackage = true;
+                    startRecognition(xiaomiPackage);
+                    return;
+                }
+            }
+
             if (packageName != null) {
                 startRecognition(null);
                 return;
@@ -86,13 +99,24 @@ public class SpeechRecognizerBridgeActivity extends Activity {
         finish();
     }
 
-    private String getPreferredSpeechPackage() {
+    private String getXiaomiSpeechPackage() {
         try {
             getPackageManager().getPackageInfo(XIAOMI_SPEECH_PACKAGE, 0);
             return XIAOMI_SPEECH_PACKAGE;
         } catch (PackageManager.NameNotFoundException ex) {
             return null;
         }
+    }
+
+    private boolean isXiaomiFamilyDevice() {
+        String manufacturer = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase();
+        String brand = Build.BRAND == null ? "" : Build.BRAND.toLowerCase();
+        return manufacturer.contains("xiaomi")
+            || manufacturer.contains("redmi")
+            || manufacturer.contains("poco")
+            || brand.contains("xiaomi")
+            || brand.contains("redmi")
+            || brand.contains("poco");
     }
 
     private void sendError(String message) {
